@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VALORANT WEB // 5v5 Spike Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#0f1720cc; --red:#ff4655; --red-dim:#ff465566;
+    --cyan:#1be3c2; --cyan-dim:#1be3c266; --gold:#f2c14e; --olive:#b7ad55; --line:#2a3644; --text:#dbe6ef;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select: none;}
+  html,body{width:100%; height:100%; overflow:hidden; background:#000; font-family:'Rajdhani',sans-serif;}
+  #gameCanvas{display:block; width:100vw; height:100vh;}
+  #gameCanvas.playing{ cursor:none; }
+  .hidden{display:none !important;}
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, #101820 0%, #05070a 100%); color:var(--text); text-align:center;
+  }
+  .overlay.scrollable{ align-items:center; justify-content:flex-start; overflow-y:auto; padding:60px 20px 40px; }
+  .overlay .kicker{ color:var(--red); letter-spacing:6px; font-weight:700; font-size:13px; margin-bottom:10px; }
+  .overlay h1{ font-family:'Orbitron',sans-serif; font-weight:900; font-size:52px; letter-spacing:4px; color:#fff; text-shadow:0 0 24px var(--red-dim); }
+  .overlay h1 span{color:var(--red);}
+  .overlay p{ max-width:560px; margin:16px 0; font-size:17px; line-height:1.7; color:#9fb0bf; font-weight:500; }
+
+  .btn{ font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:3px; font-size:16px; background:var(--red); color:#fff; border:none; padding:16px 42px; cursor:pointer; clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%); transition:transform .15s ease, box-shadow .15s ease; box-shadow:0 0 30px var(--red-dim); }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 0 40px var(--red);}
+  .btn.btnGhost{ background:transparent; color:var(--text); border:1px solid var(--line); box-shadow:none; }
+  .btn.btnGhost:hover{ border-color:var(--cyan); box-shadow:0 0 18px var(--cyan-dim); color:#fff; }
+  .btn.btnActive{ background:var(--cyan); color:#000; box-shadow:0 0 20px var(--cyan); border-color:var(--cyan); }
+  .btnRow{ display:flex; gap:16px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+
+  .diff-select { margin: 20px 0; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---------- Buy Menu ---------- */
+  #buyMenuOverlay{ z-index: 18; background: rgba(5,7,10,0.95); backdrop-filter: blur(12px); }
+  #buyPhaseKicker{ color:var(--gold); }
+  .weapon-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 20px; width: min(900px, 92vw); }
+  .shopCatHead{ grid-column: 1/-1; font-family:'Orbitron'; color:var(--gold); letter-spacing:3px; font-size:14px; margin-top:16px; border-bottom:1px solid var(--line); padding-bottom:6px; text-align:left; }
+  .weapon-card { background: #0d1620; border: 1px solid var(--line); padding: 14px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .weapon-card:hover { border-color: var(--cyan); box-shadow: 0 0 15px var(--cyan); transform: translateY(-2px);}
+  .weapon-card.locked { opacity: 0.5; cursor: not-allowed; border-color: var(--red); }
+  .weapon-card.equipped { border-color: var(--gold); box-shadow: 0 0 12px var(--gold); }
+  .weapon-card h3 { font-family: 'Orbitron'; font-size: 18px; color: #fff; margin-bottom: 6px; }
+  .weapon-card p { font-size: 12px; color: #9fb0bf; margin: 3px 0; }
+  .weapon-card .price { color: var(--cyan); font-weight: bold; margin-top: 10px; font-size: 15px; font-family: 'Orbitron'; }
+  .weapon-card.locked .price { color: var(--red); }
+
+  /* ---------- Settings screen ---------- */
+  #settingsScreen{ z-index:25; }
+  .settingsTabs{ display:flex; gap:10px; margin:24px 0 18px; }
+  .tabBtn{ font-family:'Orbitron'; font-size:12px; letter-spacing:2px; font-weight:700; background:#0f1720; border:1px solid var(--line); color:#8496a5; padding:10px 22px; cursor:pointer; clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%); }
+  .tabBtn.active{ color:#fff; border-color:var(--cyan); box-shadow:0 0 16px var(--cyan-dim); background:#132029; }
+  .settingsBody{ width:min(560px, 90vw); text-align:left; }
+  .tabPane{ display:flex; flex-direction:column; gap:14px; }
+  .settingGroup{ background:#0d1620aa; border:1px solid var(--line); padding:14px 16px; margin-top:6px; }
+  .groupHead{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .settingRow{ display:grid; grid-template-columns:110px 1fr 46px; align-items:center; gap:10px; margin:6px 0; }
+  .settingRow label{ font-size:13px; color:#9fb0bf; font-weight:600; }
+  .settingRow input[type=range]{ -webkit-appearance:none; height:4px; background:var(--line); cursor:pointer; }
+  .settingRow input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--cyan); cursor:pointer; }
+  .crosshairPreviewBox{ width:100%; height:130px; background:#0a1119; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+
+  /* ---------- HUD ---------- */
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:10; }
+  .crosshair{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
+  .hitmarker{ position:absolute; top:50%; left:50%; width:26px; height:26px; transform:translate(-50%,-50%); opacity:0; transition:opacity .08s; }
+  .hitmarker.show{ opacity:1; }
+  .hitmarker::before,.hitmarker::after{ content:''; position:absolute; width:100%; height:2px; background:var(--red); top:50%; left:0; }
+  .hitmarker::before{ transform:translateY(-50%) rotate(45deg); }
+  .hitmarker::after{ transform:translateY(-50%) rotate(-45deg); }
+  #dmgFlash{ position:absolute; inset:0; background:radial-gradient(ellipse at center, transparent 40%, var(--red-dim) 100%); opacity:0; transition:opacity .25s; }
+
+  .panel{ position:absolute; background:var(--panel); border:1px solid var(--line); backdrop-filter:blur(4px); padding:10px 16px; color:var(--text); }
+
+  #moneyPanel{ left:24px; bottom:110px; border-left: 3px solid var(--cyan); }
+  #moneyPanel .lbl{ font-size:10px; letter-spacing:2px; color:#8496a5; margin-bottom:2px; }
+  #moneyPanel .n{ font-family:'Orbitron',sans-serif; font-size:22px; color:var(--cyan); font-weight:700; }
+
+  #gunNamePanel { position: absolute; right: 24px; bottom: 95px; text-align: right; font-family: 'Orbitron'; font-size: 16px; color: var(--cyan); font-weight: 700; letter-spacing: 2px;}
+  #reloadTag{ position:absolute; right:24px; bottom:150px; text-align:right; color:var(--gold); font-family:'Orbitron'; font-size:13px; letter-spacing:2px; border-left:3px solid var(--gold); }
+  #spectateTag{ left:50%; top:96px; transform:translateX(-50%); text-align:center; color:var(--gold); font-family:'Orbitron'; font-size:13px; letter-spacing:2px; border-left:3px solid var(--gold); }
+  #healthPanel{ left:24px; bottom:24px; width:250px; }
+  #healthPanel .lbl{ font-size:11px; letter-spacing:3px; color:#8496a5; margin-bottom:6px; display:flex; justify-content:space-between; }
+  #healthBarBg{ height:14px; background:#1a232c; border:1px solid var(--line); position:relative; overflow:hidden;}
+  #healthBarFill{ height:100%; width:100%; background:linear-gradient(90deg,#1be3c2,#00a884); transition:width .15s ease; }
+  #armorRow{ display:flex; justify-content:space-between; margin-top:6px; color:var(--gold); }
+
+  #ammoPanel{ right:24px; bottom:24px; text-align:right; }
+  #ammoPanel .ammoNum{ font-family:'Orbitron',sans-serif; font-size:30px; font-weight:900; color:#fff; }
+  #ammoPanel .ammoMax{ font-size:15px; color:#8496a5; }
+  #ammoPanel .lbl{ font-size:11px; letter-spacing:3px; color:#8496a5; }
+  #ammoPanel .ammoReserve{ font-size:12px; color:var(--gold); margin-top:2px; }
+
+  /* ROUND SCOREBOARD */
+  #scoreBoard{ position:absolute; top:20px; left:50%; transform:translateX(-50%); display:flex; align-items:center; background:#0f1720ee; border:1px solid var(--line); padding: 5px 20px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
+  .team-score { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+  .team-score .lbl { font-size: 10px; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
+  .team-score .pts { font-family: 'Orbitron'; font-size: 28px; font-weight: bold; }
+  .t-ally { color: var(--cyan); } .t-enemy { color: var(--red); }
+  .score-timer { margin: 0 30px; text-align: center; }
+  .score-timer #timerHUD { font-family: 'Orbitron'; font-size: 32px; font-weight: 900; color: #fff; }
+  .score-timer.alert #timerHUD { color: var(--red); animation: pulse 1s infinite; }
+  .score-timer.buyphase #timerHUD { color: var(--gold); font-size:22px; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+  #roleTag{ position:absolute; top:20px; left:20px; margin-top:230px; }
+
+  #centerPrompt{ position:absolute; top:65%; left:50%; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .2s; }
+  #centerPrompt.show{ opacity:1; }
+  #centerPrompt .txt{ font-size:16px; letter-spacing:2px; color:#fff; font-weight:600; background: #000000aa; padding: 8px 16px; border: 1px solid var(--line); }
+  #centerPrompt .barBg { width: 200px; height: 8px; background: #222; margin-top: 6px; border: 1px solid var(--line); overflow: hidden; }
+  #centerPrompt .barFill { width: 0%; height: 100%; background: var(--cyan); }
+
+  #killfeed{ position:absolute; right:24px; top:120px; width:230px; display:flex; flex-direction:column; gap:6px; align-items:flex-end;}
+  .kf-item{ background:#0d141ccc; border-left:3px solid var(--red); padding:6px 10px; font-size:13px; color:#c9d6e0; opacity:0; transform:translateX(20px); transition:all .25s ease; font-weight:600; }
+  .kf-item.show{ opacity:1; transform:translateX(0); }
+
+  /* ROUND ANIMATION */
+  #roundAnimOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 15; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+  #roundAnimOverlay.show { opacity: 1; pointer-events: all; }
+  #roundAnimText { font-family: 'Orbitron'; font-size: 60px; font-weight: 900; letter-spacing: 5px; color: #fff; transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  #roundAnimOverlay.show #roundAnimText { transform: scale(1); }
+  #roundReasonText{ font-family:'Rajdhani'; font-size:20px; color:#c9d6e0; margin-top:12px; letter-spacing:2px; font-weight:600; }
+
+  #pauseOverlay{ z-index:15; }
+  #matchEndOverlay{ z-index:30; }
+
+  /* MINIMAP */
+  #minimapContainer { position: absolute; top: 20px; left: 20px; width: 220px; height: 220px; background: rgba(10,14,20,0.85); border: 2px solid var(--line); border-radius: 4px; overflow: hidden; transition: all 0.3s ease; }
+  #minimapContainer.zoomed { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; height: 500px; z-index: 16; background: rgba(10,14,20,0.95); box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+  #minimapCanvas { width: 100%; height: 100%; display: block; }
+  .mm-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--gold); letter-spacing: 1px; text-shadow: 1px 1px 0 #000; width: 100%; text-align: center; }
+
+  #sniperScope { position:fixed; inset:0; z-index: 9; background: radial-gradient(circle, transparent 30%, #000 70%); display: flex; justify-content: center; align-items: center; pointer-events: none;}
+  #sniperScope::before { content: ''; width: 2px; height: 100%; background: #ff4655; position: absolute; opacity: 0.8;}
+  #sniperScope::after { content: ''; width: 100%; height: 2px; background: #ff4655; position: absolute; opacity: 0.8;}
+  .scope-dot { width: 6px; height: 6px; background: #fff; border-radius: 50%; z-index: 10; border: 1px solid #000; }
+</style>
+</head>
+<body oncontextmenu="return false;">
+
+<canvas id="gameCanvas"></canvas>
+<div id="sniperScope" class="hidden"><div class="scope-dot"></div></div>
+
+<!-- MINIMAP -->
+<div id="minimapContainer">
+    <canvas id="minimapCanvas" width="500" height="500"></canvas>
+    <div class="mm-hint">NHẤN [M] ĐỂ PHÓNG TO MAP</div>
+</div>
+
+<!-- START SCREEN -->
+<div id="startScreen" class="overlay scrollable">
+  <div class="kicker">DEFEND THE RADIANITE // DISTRICT</div>
+  <h1>VALORANT <span>WEB</span></h1>
+  <p>Map "District" đã được cải tạo: hành lang Mid nay có một khúc cua chữ Z ở giữa nên hai đội KHÔNG thấy nhau
+  ngay khi vào trận — phải tiến ra khu vực Mid mới chạm mặt. Minimap chỉ hiện kẻ địch khi đội bạn thực sự
+  nhìn thấy chúng; nếu mất dấu, một dấu <strong>?</strong> sẽ đánh dấu vị trí cuối cùng chúng xuất hiện.
+  Thắng trước <strong>4 round</strong> để thắng trận. Mỗi round có <strong>15 giây đầu</strong> để mua súng và giáp
+  (Giáp nhẹ +25 máu, Giáp nặng +50 máu) trước khi trận đấu chính thức bắt đầu.</p>
+
+  <p>Chọn vai trò của bạn:</p>
+  <div class="diff-select" id="roleSelect">
+      <button class="btn btnGhost roleBtn btnActive" data-role="attack">TẤN CÔNG (Đặt Spike)</button>
+      <button class="btn btnGhost roleBtn" data-role="defend">PHÒNG THỦ (Gỡ Spike)</button>
+  </div>
+
+  <p>Chọn độ thông minh của đội đối phương:</p>
+  <div class="diff-select">
+      <button class="btn btnGhost diffBtn" data-diff="0">DỄ</button>
+      <button class="btn btnGhost diffBtn btnActive" data-diff="1">VỪA</button>
+      <button class="btn btnGhost diffBtn" data-diff="2">KHÓ</button>
+  </div>
+
+  <div class="btnRow">
+    <button class="btn" id="startBtn">CHIẾN ĐẤU</button>
+    <button class="btn btnGhost" id="settingsBtnStart">CÀI ĐẶT</button>
+  </div>
+</div>
+
+<!-- PAUSE SCREEN -->
+<div id="pauseOverlay" class="overlay hidden">
+  <div class="kicker">TẠM DỪNG</div>
+  <h1>NGHỈ <span>GIẢI LAO</span></h1>
+  <p id="pauseHint">Nhấn nút bên dưới để tiếp tục.</p>
+  <div class="btnRow">
+    <button class="btn" id="resumeBtn">TIẾP TỤC</button>
+    <button class="btn btnGhost" id="shopBtnPause">SHOP (B)</button>
+    <button class="btn btnGhost" id="settingsBtnPause">CÀI ĐẶT</button>
+  </div>
+</div>
+
+<!-- BUY MENU -->
+<div id="buyMenuOverlay" class="overlay hidden scrollable">
+  <div class="kicker" id="buyPhaseKicker">KHO VŨ KHÍ &amp; GIÁP</div>
+  <h1>VALORANT <span>ARSENAL</span></h1>
+  <p>Số dư hiện tại: <span id="shopMoneyDisplay" style="color:var(--cyan); font-weight:bold; font-size:18px;">3000</span> CREDITS &nbsp;|&nbsp;
+     Giáp hiện có: <span id="shopArmorDisplay" style="color:var(--gold); font-weight:bold; font-size:18px;">0</span></p>
+  <div class="weapon-grid" id="weaponGrid"></div>
+  <div class="btnRow" style="margin-top: 30px;">
+    <button class="btn btnGhost" id="closeShopBtn">ĐÓNG SHOP</button>
+    <button class="btn hidden" id="skipBuyBtn">VÀO TRẬN NGAY</button>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div id="settingsScreen" class="overlay scrollable hidden">
+  <div class="kicker">TÙY CHỈNH HỆ THỐNG</div>
+  <h1>CÀI <span>ĐẶT</span></h1>
+  <div class="settingsTabs">
+    <button class="tabBtn active" data-tab="sens">ĐỘ NHẠY</button>
+    <button class="tabBtn" data-tab="cross">TÂM NGẮM</button>
+  </div>
+  <div class="settingsBody">
+    <div class="tabPane" id="tab-sens">
+      <div class="settingRow"><label>Độ nhạy</label><input type="range" id="sensSlider" min="0.1" max="5" step="0.01" value="1"><span class="valTxt" id="sensSliderVal">1.00</span></div>
+      <div class="settingRow"><label>Nhập tay</label><input type="number" id="sensNumberInput" min="0.1" max="5" step="0.01" value="1.00" style="background:#0a1119; border:1px solid var(--line); color:var(--text); padding:6px;"><span class="valTxt"></span></div>
+    </div>
+    <div class="tabPane hidden" id="tab-cross">
+      <div class="crosshairPreviewBox"><div class="crosshair" id="crosshairPreviewMount"></div></div>
+      <div class="settingRow"><label>Độ mờ tổng</label><input type="range" id="chOpacity" min="0" max="1" step="0.05" value="1"><span class="valTxt" id="chOpacityVal">1.00</span></div>
+
+      <div class="settingGroup">
+        <div class="groupHead"><input type="checkbox" id="innerEnabled" checked><label>VẠCH TRONG</label></div>
+        <div class="settingRow"><label>Độ mờ</label><input type="range" id="innerOpacity" min="0" max="1" step="0.05" value="1"><span class="valTxt" id="innerOpacityVal">1.00</span></div>
+        <div class="settingRow"><label>Độ dài</label><input type="range" id="innerLength" min="1" max="20" step="1" value="6"><span class="valTxt" id="innerLengthVal">6</span></div>
+        <div class="settingRow"><label>Độ dày</label><input type="range" id="innerThickness" min="1" max="8" step="1" value="2"><span class="valTxt" id="innerThicknessVal">2</span></div>
+        <div class="settingRow"><label>Khoảng cách</label><input type="range" id="innerOffset" min="0" max="20" step="1" value="3"><span class="valTxt" id="innerOffsetVal">3</span></div>
+      </div>
+
+      <div class="settingGroup">
+        <div class="groupHead"><input type="checkbox" id="outerEnabled"><label>VẠCH NGOÀI</label></div>
+        <div class="settingRow"><label>Độ mờ</label><input type="range" id="outerOpacity" min="0" max="1" step="0.05" value="1"><span class="valTxt" id="outerOpacityVal">1.00</span></div>
+        <div class="settingRow"><label>Độ dài</label><input type="range" id="outerLength" min="1" max="20" step="1" value="2"><span class="valTxt" id="outerLengthVal">2</span></div>
+        <div class="settingRow"><label>Độ dày</label><input type="range" id="outerThickness" min="1" max="8" step="1" value="2"><span class="valTxt" id="outerThicknessVal">2</span></div>
+        <div class="settingRow"><label>Khoảng cách</label><input type="range" id="outerOffset" min="0" max="30" step="1" value="10"><span class="valTxt" id="outerOffsetVal">10</span></div>
+      </div>
+
+      <div class="settingGroup">
+        <div class="groupHead"><input type="checkbox" id="dotEnabled"><label>CHẤM GIỮA</label></div>
+        <div class="settingRow"><label>Độ mờ</label><input type="range" id="dotOpacity" min="0" max="1" step="0.05" value="1"><span class="valTxt" id="dotOpacityVal">1.00</span></div>
+        <div class="settingRow"><label>Kích thước</label><input type="range" id="dotSize" min="1" max="8" step="1" value="2"><span class="valTxt" id="dotSizeVal">2</span></div>
+      </div>
+
+      <div class="settingGroup">
+        <div class="groupHead"><label>MÃ CROSSHAIR</label></div>
+        <div class="settingRow" style="grid-template-columns:1fr auto;">
+          <input type="text" id="chCodeInput" placeholder="Dán mã crosshair..." style="background:#0a1119; border:1px solid var(--line); color:var(--text); padding:8px; font-family:monospace;">
+          <button class="btn btnGhost" id="chImportBtn" style="padding:8px 14px; font-size:11px;">NHẬP</button>
+        </div>
+        <div class="settingRow" style="grid-template-columns:1fr auto;">
+          <input type="text" id="chCodeOutput" readonly style="background:#0a1119; border:1px solid var(--line); color:var(--cyan); padding:8px; font-family:monospace;">
+          <button class="btn btnGhost" id="chExportBtn" style="padding:8px 14px; font-size:11px;">SAO CHÉP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="settingsFooter"><button class="btn" id="settingsBackBtn">QUAY LẠI</button></div>
+</div>
+
+<!-- ROUND ANIMATION OVERLAY -->
+<div id="roundAnimOverlay">
+    <div style="text-align:center;">
+      <div id="roundAnimText">THẮNG ROUND</div>
+      <div id="roundReasonText"></div>
+    </div>
+</div>
+
+<!-- MATCH END OVERLAY -->
+<div id="matchEndOverlay" class="overlay hidden">
+  <div class="kicker">TRẬN ĐẤU KẾT THÚC</div>
+  <h1 id="matchEndTitle">CHIẾN THẮNG!</h1>
+  <p>Tỷ số chung cuộc: <span id="matchEndScore" style="color:var(--gold); font-weight:bold; font-size:22px;">4 - 2</span></p>
+  <div class="btnRow"><button class="btn" id="matchRestartBtn">CHƠI LẠI</button></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="crosshair" id="crosshairMount"></div>
+  <div class="hitmarker" id="hitmarker"></div>
+  <div id="dmgFlash"></div>
+
+  <div class="panel" id="moneyPanel">
+      <div class="lbl">CREDITS</div>
+      <div class="n" id="moneyCur">3000</div>
+  </div>
+
+  <div class="panel" id="healthPanel">
+    <div class="lbl"><span>THỂ LỰC</span><span id="hpText">150</span></div>
+    <div id="healthBarBg"><div id="healthBarFill"></div></div>
+    <div class="lbl" id="armorRow"><span>GIÁP</span><span id="armorText">0</span></div>
+  </div>
+
+  <div id="gunNamePanel">CLASSIC</div>
+  <div class="panel hidden" id="reloadTag">ĐANG NẠP ĐẠN...</div>
+  <div class="panel hidden" id="spectateTag">ĐANG QUAN SÁT</div>
+  <div class="panel" id="ammoPanel">
+    <div class="lbl">ĐẠN</div>
+    <div><span class="ammoNum" id="ammoCur">12</span><span class="ammoMax" id="ammoMaxHUD">/12</span></div>
+    <div class="ammoReserve" id="ammoReserveHUD">DỰ TRỮ: 36</div>
+  </div>
+
+  <!-- BẢNG ĐIỂM -->
+  <div id="scoreBoard">
+      <div class="team-score t-ally">
+          <div class="lbl">ĐỒNG MINH</div>
+          <div class="pts" id="scoreAlly">0</div>
+      </div>
+      <div class="score-timer" id="timerContainer">
+          <div id="timerHUD">1:40</div>
+      </div>
+      <div class="team-score t-enemy">
+          <div class="lbl">KẺ ĐỊCH</div>
+          <div class="pts" id="scoreEnemy">0</div>
+      </div>
+  </div>
+
+  <div id="centerPrompt">
+      <div class="txt" id="promptTxt">GIỮ F ĐỂ ĐẶT SPIKE</div>
+      <div class="barBg" id="promptBar"><div class="barFill" id="promptFill"></div></div>
+  </div>
+  <div id="killfeed"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     HỆ THỐNG VŨ KHÍ VALORANT (đầy đủ 18 súng + 3 dao)
+  ============================================================ */
+  const WEAPONS = {
+      classic:  { name:"CLASSIC",  cat:'Súng Ngắn', type:'pistol',  dmgHead:78,  dmgBody:26,  dmgLeg:22,  fireRate:150,  ammo:12,  reloadTime:1200, isAuto:false, price:0 },
+      shorty:   { name:"SHORTY",   cat:'Súng Ngắn', type:'shotgun', dmgHead:36,  dmgBody:18,  dmgLeg:14,  fireRate:500,  ammo:2,   reloadTime:1600, isAuto:false, price:200 },
+      frenzy:   { name:"FRENZY",   cat:'Súng Ngắn', type:'pistol',  dmgHead:78,  dmgBody:26,  dmgLeg:22,  fireRate:100,  ammo:13,  reloadTime:1300, isAuto:true,  price:400 },
+      ghost:    { name:"GHOST",    cat:'Súng Ngắn', type:'pistol',  dmgHead:105, dmgBody:30,  dmgLeg:26,  fireRate:140,  ammo:15,  reloadTime:1500, isAuto:false, price:500 },
+      sheriff:  { name:"SHERIFF",  cat:'Súng Ngắn', type:'pistol',  dmgHead:159, dmgBody:55,  dmgLeg:46,  fireRate:300,  ammo:6,   reloadTime:2000, isAuto:false, price:800 },
+
+      stinger:  { name:"STINGER",  cat:'SMG',       type:'smg',     dmgHead:67,  dmgBody:19,  dmgLeg:16,  fireRate:70,   ammo:20,  reloadTime:2000, isAuto:true,  price:1100 },
+      spectre:  { name:"SPECTRE",  cat:'SMG',       type:'smg',     dmgHead:78,  dmgBody:26,  dmgLeg:22,  fireRate:85,   ammo:30,  reloadTime:2250, isAuto:true,  price:1600 },
+
+      bucky:    { name:"BUCKY",    cat:'Súng Săn',  type:'shotgun', dmgHead:80,  dmgBody:22,  dmgLeg:18,  fireRate:600,  ammo:5,   reloadTime:2700, isAuto:false, price:900 },
+      judge:    { name:"JUDGE",    cat:'Súng Săn',  type:'shotgun', dmgHead:34,  dmgBody:17,  dmgLeg:13,  fireRate:400,  ammo:7,   reloadTime:2500, isAuto:true,  price:1500 },
+
+      bulldog:  { name:"BULLDOG",  cat:'Súng Trường', type:'rifle', dmgHead:116, dmgBody:35,  dmgLeg:30,  fireRate:100,  ammo:24,  reloadTime:2500, isAuto:true,  price:2050 },
+      guardian: { name:"GUARDIAN", cat:'Súng Trường', type:'rifle', dmgHead:195, dmgBody:65,  dmgLeg:49,  fireRate:250,  ammo:12,  reloadTime:2750, isAuto:false, price:2250 },
+      phantom:  { name:"PHANTOM",  cat:'Súng Trường', type:'rifle', dmgHead:156, dmgBody:39,  dmgLeg:33,  fireRate:90,   ammo:30,  reloadTime:2500, isAuto:true,  price:2900 },
+      vandal:   { name:"VANDAL",   cat:'Súng Trường', type:'rifle', dmgHead:160, dmgBody:40,  dmgLeg:34,  fireRate:100,  ammo:25,  reloadTime:2500, isAuto:true,  price:2900 },
+
+      marshal:  { name:"MARSHAL",  cat:'Súng Bắn Tỉa', type:'sniper', dmgHead:202, dmgBody:101, dmgLeg:85,  fireRate:900,  ammo:5,  reloadTime:2500, isAuto:false, price:1100 },
+      outlaw:   { name:"OUTLAW",   cat:'Súng Bắn Tỉa', type:'sniper', dmgHead:238, dmgBody:140, dmgLeg:120, fireRate:1300, ammo:2,  reloadTime:3000, isAuto:false, price:2400 },
+      operator: { name:"OPERATOR", cat:'Súng Bắn Tỉa', type:'sniper', dmgHead:255, dmgBody:150, dmgLeg:120, fireRate:1500, ammo:5,  reloadTime:3700, isAuto:false, price:4700 },
+
+      ares:     { name:"ARES",     cat:'Súng Máy',  type:'heavy',   dmgHead:72,  dmgBody:30,  dmgLeg:26,  fireRate:100,  ammo:50,  reloadTime:3200, isAuto:true,  price:1600 },
+      odin:     { name:"ODIN",     cat:'Súng Máy',  type:'heavy',   dmgHead:95,  dmgBody:38,  dmgLeg:32,  fireRate:65,   ammo:100, reloadTime:5000, isAuto:true,  price:3200 },
+
+      knife_default:  { name:"DAO GĂM",  cat:'Dao', type:'melee', dmgHead:180, dmgBody:75, dmgLeg:60, fireRate:400, ammo:Infinity, reloadTime:0, isAuto:false, price:0 },
+      knife_karambit: { name:"KARAMBIT", cat:'Dao', type:'melee', dmgHead:180, dmgBody:75, dmgLeg:60, fireRate:350, ammo:Infinity, reloadTime:0, isAuto:false, price:0 },
+      knife_butterfly:{ name:"DAO BƯỚM", cat:'Dao', type:'melee', dmgHead:180, dmgBody:75, dmgLeg:60, fireRate:300, ammo:Infinity, reloadTime:0, isAuto:false, price:0 }
+  };
+  const SHOP_ORDER = ['Súng Ngắn','SMG','Súng Săn','Súng Trường','Súng Bắn Tỉa','Súng Máy','Dao'];
+  let currentGun = 'classic';
+  let isADS = false;
+
+  /* ============================================================
+     GIÁP (mua trong pha Buy, cộng thẳng vào máu tối đa như Valorant)
+  ============================================================ */
+  const BASE_HEALTH = 150;
+  const ARMORS = {
+      light: { name:"GIÁP NHẸ", hp:25, price:400 },
+      heavy: { name:"GIÁP NẶNG", hp:50, price:1000 }
+  };
+
+  /* ============================================================
+     CÀI ĐẶT CROSSHAIR
+  ============================================================ */
+  let settings = {
+    sensitivity: 1.0,
+    crosshair: {
+        color: '#1be3c2', overallOpacity: 1,
+        inner:  { enabled:true, opacity:1, length:6, thickness:2, offset:3 },
+        outer:  { enabled:false, opacity:1, length:2, thickness:2, offset:10 },
+        dot:    { enabled:false, opacity:1, size:2 },
+        outline:{ enabled:true, opacity:0.5, thickness:1 }
+    }
+  };
+  function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+  function buildCrosshairSVG(scale){
+    scale = scale || 1; const s = settings.crosshair; const vb = 64, cx = vb/2, cy = vb/2; const segs = [];
+    if(s.inner?.enabled){ const off=s.inner.offset, len=s.inner.length, th=s.inner.thickness, op=s.inner.opacity; segs.push([cx,cy-off-len,cx,cy-off,th,op]); segs.push([cx,cy+off,cx,cy+off+len,th,op]); segs.push([cx-off-len,cy,cx-off,cy,th,op]); segs.push([cx+off,cy,cx+off+len,cy,th,op]); }
+    if(s.outer?.enabled){ const off=s.outer.offset, len=s.outer.length, th=s.outer.thickness, op=s.outer.opacity; segs.push([cx,cy-off-len,cx,cy-off,th,op]); segs.push([cx,cy+off,cx,cy+off+len,th,op]); segs.push([cx-off-len,cy,cx-off,cy,th,op]); segs.push([cx+off,cy,cx+off+len,cy,th,op]); }
+    let svg = `<svg viewBox="0 0 ${vb} ${vb}" width="${34*scale}" height="${34*scale}" style="overflow:visible">`;
+    if(s.outline?.enabled && s.outline.thickness > 0){ segs.forEach(seg=>{ const [x1,y1,x2,y2,th,op] = seg; svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#000" stroke-width="${th + s.outline.thickness*2}" stroke-linecap="square" opacity="${clamp(s.outline.opacity,0,1)*op}"/>`; }); }
+    segs.forEach(seg=>{ const [x1,y1,x2,y2,th,op] = seg; svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${s.color}" stroke-width="${th}" stroke-linecap="square" opacity="${op*s.overallOpacity}"/>`; });
+    if(s.dot?.enabled) svg += `<circle cx="${cx}" cy="${cy}" r="${s.dot.size}" fill="${s.color}" opacity="${s.dot.opacity*s.overallOpacity}"/>`;
+    svg += `</svg>`; return svg;
+  }
+  function applyCrosshair(){ const hm = document.getElementById('crosshairMount'); const pm = document.getElementById('crosshairPreviewMount'); if(hm) hm.innerHTML = buildCrosshairSVG(1); if(pm) pm.innerHTML = buildCrosshairSVG(2.6); syncCrosshairCode(); }
+  function el(id){ return document.getElementById(id); }
+  function bindRange(id, valId, onSet){ const input = el(id); if(input) { input.addEventListener('input', ()=>{ const v = parseFloat(input.value); onSet(v); if(valId) el(valId).textContent = v.toFixed(2); applyCrosshair(); }); } }
+
+  /* --- Mã Crosshair (giống hệ thống code Valorant, dạng base64 JSON) --- */
+  function syncCrosshairCode(){ const out = el('chCodeOutput'); if(out) out.value = btoa(unescape(encodeURIComponent(JSON.stringify(settings.crosshair)))); }
+  function importCrosshairCode(code){
+    try{
+      const obj = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      settings.crosshair = Object.assign(settings.crosshair, obj);
+      refreshCrosshairInputs(); applyCrosshair();
+      return true;
+    } catch(e){ return false; }
+  }
+  function refreshCrosshairInputs(){
+    const s = settings.crosshair;
+    if(el('chOpacity')){ el('chOpacity').value = s.overallOpacity; el('chOpacityVal').textContent = s.overallOpacity.toFixed(2); }
+    ['inner','outer'].forEach(k=>{
+      if(el(k+'Enabled')) el(k+'Enabled').checked = s[k].enabled;
+      if(el(k+'Opacity')){ el(k+'Opacity').value = s[k].opacity; el(k+'OpacityVal').textContent = s[k].opacity.toFixed(2); }
+      if(el(k+'Length')){ el(k+'Length').value = s[k].length; el(k+'LengthVal').textContent = s[k].length; }
+      if(el(k+'Thickness')){ el(k+'Thickness').value = s[k].thickness; el(k+'ThicknessVal').textContent = s[k].thickness; }
+      if(el(k+'Offset')){ el(k+'Offset').value = s[k].offset; el(k+'OffsetVal').textContent = s[k].offset; }
+    });
+    if(el('dotEnabled')) el('dotEnabled').checked = s.dot.enabled;
+    if(el('dotOpacity')){ el('dotOpacity').value = s.dot.opacity; el('dotOpacityVal').textContent = s.dot.opacity.toFixed(2); }
+    if(el('dotSize')){ el('dotSize').value = s.dot.size; el('dotSizeVal').textContent = s.dot.size; }
+  }
+
+  function initSettingsUI(){
+    document.querySelectorAll('.tabBtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ document.querySelectorAll('.tabBtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.tabPane').forEach(p=>p.classList.add('hidden')); el('tab-'+btn.dataset.tab).classList.remove('hidden'); }); });
+    if(el('sensSlider')) el('sensSlider').addEventListener('input', ()=>{ const v = clamp(parseFloat(el('sensSlider').value), 0.1, 5); settings.sensitivity = v; el('sensSliderVal').textContent = v.toFixed(2); if(el('sensNumberInput')) el('sensNumberInput').value = v.toFixed(2); });
+    if(el('sensNumberInput')) el('sensNumberInput').addEventListener('input', ()=>{ let v = parseFloat(el('sensNumberInput').value); if(isNaN(v)) return; v = clamp(v, 0.1, 5); settings.sensitivity = v; if(el('sensSlider')) el('sensSlider').value = v; if(el('sensSliderVal')) el('sensSliderVal').textContent = v.toFixed(2); });
+    bindRange('chOpacity','chOpacityVal', v=> settings.crosshair.overallOpacity = v);
+    bindRange('innerOpacity','innerOpacityVal', v=> settings.crosshair.inner.opacity = v); bindRange('innerLength','innerLengthVal', v=> settings.crosshair.inner.length = v); bindRange('innerThickness','innerThicknessVal', v=> settings.crosshair.inner.thickness = v); bindRange('innerOffset','innerOffsetVal', v=> settings.crosshair.inner.offset = v);
+    bindRange('outerOpacity','outerOpacityVal', v=> settings.crosshair.outer.opacity = v); bindRange('outerLength','outerLengthVal', v=> settings.crosshair.outer.length = v); bindRange('outerThickness','outerThicknessVal', v=> settings.crosshair.outer.thickness = v); bindRange('outerOffset','outerOffsetVal', v=> settings.crosshair.outer.offset = v);
+    bindRange('dotOpacity','dotOpacityVal', v=> settings.crosshair.dot.opacity = v); bindRange('dotSize','dotSizeVal', v=> settings.crosshair.dot.size = v);
+    if(el('settingsBackBtn')) el('settingsBackBtn').addEventListener('click', ()=>{ el('settingsScreen').classList.add('hidden'); if(gameState === STATE.PAUSED) el('pauseOverlay').classList.remove('hidden'); else el('startScreen').classList.remove('hidden'); });
+
+    const cbs = ['inner', 'outer', 'dot'];
+    cbs.forEach(k => { if(el(k+'Enabled')) el(k+'Enabled').addEventListener('change', (e)=> { settings.crosshair[k].enabled = e.target.checked; applyCrosshair(); }); });
+
+    if(el('chImportBtn')) el('chImportBtn').addEventListener('click', ()=>{ const ok = importCrosshairCode(el('chCodeInput').value); el('chImportBtn').textContent = ok ? 'ĐÃ NHẬP!' : 'MÃ LỖI'; setTimeout(()=> el('chImportBtn').textContent = 'NHẬP', 1200); });
+    if(el('chExportBtn')) el('chExportBtn').addEventListener('click', ()=>{ el('chCodeOutput').select(); document.execCommand('copy'); el('chExportBtn').textContent = 'ĐÃ CHÉP!'; setTimeout(()=> el('chExportBtn').textContent = 'SAO CHÉP', 1200); });
+
+    applyCrosshair();
+  }
+
+  /* ============================================================
+     GLOBAL STATE, SCORE, ROLE & 5v5 SYSTEM
+  ============================================================ */
+  const STATE = { START:0, PLAYING:1, PAUSED:2, BUY:3, SHOP:4, ROUND_END:5 };
+  let gameState = STATE.START;
+  const MATCH_WIN_ROUNDS = 4;
+  const BUY_PHASE_SECONDS = 15;
+  let buyPhaseTime = BUY_PHASE_SECONDS;
+
+  let selectedDifficulty = 1;
+  const DIFF_STATS = [
+      { hp: 100, acc: 0.25, dmgMult: 0.5, react: 1200 }, // Dễ
+      { hp: 150, acc: 0.45, dmgMult: 1.0, react: 700 },  // Vừa
+      { hp: 150, acc: 0.85, dmgMult: 1.5, react: 300 }   // Khó
+  ];
+
+  // Vai trò: team1 luôn là đội của người chơi (đồng minh). ATTACK_TEAM/DEFEND_TEAM
+  // quyết định team nào đi đặt bom, team nào đi gỡ bom trong trận này.
+  let playerIsAttacker = true;
+  let ATTACK_TEAM = 1;
+  let DEFEND_TEAM = 2;
+
+  // Chế độ xem sau khi chết: null | 'ally' | 'bomb' | 'wait'
+  let spectateMode = null;
+  let spectateTarget = null;
+
+  let scoreAlly = 0; let scoreEnemy = 0; let currentRound = 1;
+  let scene, camera, renderer, clock; let yawObject, pitchObject; const PI_2 = Math.PI / 2;
+  const move = { forward:false, backward:false, left:false, right:false, sprint:false };
+  let canJump = true; let vSpeed = 0; const GRAVITY = -35; const JUMP_SPEED = 10; const EYE_HEIGHT = 1.65;
+  const player = { health: BASE_HEALTH, maxHealth: BASE_HEALTH, armor: 0, money: 3000, ammo: 12, maxAmmo: 12, reserveAmmo: 0, reloading: false, radius: 0.45, defuseProgress: 0 };
+  const forwardVec = new THREE.Vector3();
+  const rightVec = new THREE.Vector3();
+  const UP_VEC = new THREE.Vector3(0,1,0);
+
+  let agents = []; let wallMeshes = []; let colliders = [];
+  let isMapZoomed = false;
+  const teamSpotted = { 1:null, 2:null }; // "callout" - đồng đội chia sẻ vị trí địch vừa thấy
+
+  // BOMB (SPIKE) MECHANICS
+  let roundTime = 100;
+  let bombState = 'unplanted';
+  let plantProgress = 0; let plantedPos = null; let isHoldingPlant = false; let spikeMesh = null;
+
+  function plantBombAt(pos){
+      bombState = 'planted';
+      roundTime = 40;
+      plantedPos = pos.clone();
+      spikeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.3,0.8), new THREE.MeshStandardMaterial({color:0x222222, emissive:0xff0000}));
+      spikeMesh.position.copy(plantedPos); spikeMesh.position.y = 0.4;
+      scene.add(spikeMesh);
+  }
+  function spawnNodeForTeam(team){ return (team === ATTACK_TEAM) ? 'T_SPAWN' : 'CT_SPAWN'; }
+  function siteLetter(nodeKey){ return nodeKey === 'A_SITE' ? 'A' : 'B'; }
+
+  let mouseDown = false; let lastFireTime = 0;
+  const raycaster = new THREE.Raycaster(); const losRay = new THREE.Raycaster();
+
+  /* ============================================================
+     MAP "DISTRICT" - dạng PHÒNG KÍN + CỬA + HÀNH LANG (giống ảnh tham khảo)
+     Mỗi node NAV là một căn phòng có 4 bức tường; những hướng có cạnh nối
+     sẽ được khoét cửa (độ rộng = CORR_W) rồi nối bằng một đoạn hành lang
+     tới phòng kế bên -> tạo cấu trúc nhiều phòng/hành lang khối kiểu Valorant.
+     Gồm: T Spawn, T Mid, Mid, Cubby, Mid Low, CT Mid, CT Low, CT Spawn,
+     A Main/Lobby/Site/Heaven/Link, B Main/Lobby/Site/Heaven/Link,
+     cùng 2 lối phụ A Short / B Short để tạo thêm đường vào site.
+     Mid nay có một khúc cua chữ Z (xem buildMidChicane) để hai team
+     KHÔNG thấy thẳng nhau từ spawn - phải tiến ra giữa Mid mới chạm mặt.
+  ============================================================ */
+  const ARENA_SIZE = 70;
+  const NAV_NODES = {
+      T_SPAWN:  {x:0,   z:55},
+      T_MID:    {x:0,   z:35},
+      MID:      {x:0,   z:10},
+      CUBBY:    {x:-15, z:10},
+      MID_LOW:  {x:0,   z:-10},
+      CT_MID:   {x:0,   z:-25},
+      CT_LOW:   {x:0,   z:-40},
+      CT_SPAWN: {x:0,   z:-55},
+
+      A_MAIN:   {x:-40, z:35},
+      A_LOBBY:  {x:-40, z:5},
+      A_SITE:   {x:-40, z:-25},
+      A_HEAVEN: {x:-40, z:-40},
+      A_LINK:   {x:-15, z:-25},
+      A_SHORT:  {x:-22, z:-2},
+
+      B_MAIN:   {x:40,  z:35},
+      B_LOBBY:  {x:40,  z:5},
+      B_SITE:   {x:40,  z:-25},
+      B_HEAVEN: {x:40,  z:-40},
+      B_LINK:   {x:15,  z:-25},
+      B_SHORT:  {x:22,  z:-2}
+  };
+  const EDGES = [
+      ['T_SPAWN','T_MID'], ['T_MID','A_MAIN'], ['T_MID','B_MAIN'], ['T_MID','MID'],
+      ['MID','CUBBY'], ['MID','MID_LOW'], ['MID_LOW','CT_MID'],
+      ['A_MAIN','A_LOBBY'], ['A_LOBBY','A_SITE'], ['A_SITE','A_LINK'], ['A_SITE','A_HEAVEN'],
+      ['A_LINK','CT_MID'], ['A_HEAVEN','CT_LOW'],
+      ['B_MAIN','B_LOBBY'], ['B_LOBBY','B_SITE'], ['B_SITE','B_LINK'], ['B_SITE','B_HEAVEN'],
+      ['B_LINK','CT_MID'], ['B_HEAVEN','CT_LOW'],
+      ['CT_MID','CT_LOW'], ['CT_LOW','CT_SPAWN'],
+      // Lối phụ mới: A Short nối Cubby thẳng vào A Lobby, B Short nối Mid Low thẳng vào B Lobby
+      ['CUBBY','A_SHORT'], ['A_SHORT','A_LOBBY'],
+      ['MID_LOW','B_SHORT'], ['B_SHORT','B_LOBBY']
+  ];
+  const ADJ = {};
+  EDGES.forEach(([a,b])=>{ (ADJ[a]=ADJ[a]||[]).push(b); (ADJ[b]=ADJ[b]||[]).push(a); });
+
+  // Các cạnh bị chặn tạm thời bởi rào chắn pha mua đồ (freeze barrier), dạng "A_B"
+  const FREEZE_BLOCKED_EDGES = [ ['T_SPAWN','T_MID'], ['CT_SPAWN','CT_LOW'] ];
+  let freezeBarrierMeshes = [];
+
+  function bfsPath(start, goal){
+      if(!ADJ[start] || !ADJ[goal]) return [start];
+      if(start === goal) return [start];
+      const queue=[start]; const visited={[start]:true}; const prev={};
+      while(queue.length){
+          const cur = queue.shift();
+          if(cur === goal) break;
+          for(const nb of (ADJ[cur]||[])){ if(!visited[nb]){ visited[nb]=true; prev[nb]=cur; queue.push(nb); } }
+      }
+      if(!visited[goal]) return [start];
+      const path=[goal]; let cur=goal;
+      while(cur !== start){ cur = prev[cur]; path.unshift(cur); }
+      return path;
+  }
+  function getClosestNode(pos) {
+      let closest = 'MID'; let minDist = Infinity;
+      for(const [key, p] of Object.entries(NAV_NODES)) { let dist = Math.hypot(pos.x - p.x, pos.z - p.z); if(dist < minDist){ minDist = dist; closest = key; } }
+      return closest;
+  }
+
+  let SITE_A = { minX:-49, maxX:-31, minZ:-33, maxZ:-17 };
+  let SITE_B = { minX: 31, maxX: 49, minZ:-33, maxZ:-17 };
+
+  const wallMat = new THREE.MeshStandardMaterial({ color:0xe0e0e0, roughness:0.9 });
+  const WALL_H = 6, WALL_THICK = 2, ROOM_HALF = 6.5, CORR_W = 7;
+
+  function addWall(x,z,w,d){
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, WALL_H, d), wallMat);
+      mesh.position.set(x, WALL_H/2, z); mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh); wallMeshes.push(mesh);
+      colliders.push({minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2});
+  }
+
+  // Xây một "phòng" vuông quanh mỗi node: 4 cạnh tường, khoét cửa (rộng CORR_W)
+  // ở những hướng có cạnh (edge) nối sang phòng khác.
+  function buildSideWall(cx, cz, horizontal, hasOpening){
+      const half = ROOM_HALF, gap = CORR_W;
+      if(!hasOpening){
+          if(horizontal) addWall(cx, cz, half*2, WALL_THICK); else addWall(cx, cz, WALL_THICK, half*2);
+          return;
+      }
+      const segLen = half - gap/2;
+      if(segLen <= 0.15) return;
+      if(horizontal){
+          addWall(cx - half + segLen/2, cz, segLen, WALL_THICK);
+          addWall(cx + half - segLen/2, cz, segLen, WALL_THICK);
+      } else {
+          addWall(cx, cz - half + segLen/2, WALL_THICK, segLen);
+          addWall(cx, cz + half - segLen/2, WALL_THICK, segLen);
+      }
+  }
+  function buildRoom(nodeKey){
+      const node = NAV_NODES[nodeKey];
+      const neighbors = ADJ[nodeKey] || [];
+      const open = {N:false,S:false,E:false,W:false};
+      neighbors.forEach(nb=>{
+          const p = NAV_NODES[nb];
+          if(p.x === node.x){ if(p.z < node.z) open.N = true; else open.S = true; }
+          else if(p.z === node.z){ if(p.x < node.x) open.W = true; else open.E = true; }
+          else {
+              // cạnh chéo (A_SHORT / B_SHORT) -> chỉ mở phía gần nhất theo trục trội hơn
+              if(Math.abs(p.x-node.x) > Math.abs(p.z-node.z)) { if(p.x < node.x) open.W = true; else open.E = true; }
+              else { if(p.z < node.z) open.N = true; else open.S = true; }
+          }
+      });
+      buildSideWall(node.x, node.z - ROOM_HALF, true, open.N);
+      buildSideWall(node.x, node.z + ROOM_HALF, true, open.S);
+      buildSideWall(node.x - ROOM_HALF, node.z, false, open.W);
+      buildSideWall(node.x + ROOM_HALF, node.z, false, open.E);
+  }
+
+  // Nối 2 phòng bằng một đoạn hành lang có cùng bề rộng với khung cửa (CORR_W).
+  // Hỗ trợ cả hành lang chéo (dùng cho A_SHORT/B_SHORT) bằng một đường nối đơn giản (dogleg).
+  function buildCorridor(nA, nB){
+      const a = NAV_NODES[nA], b = NAV_NODES[nB];
+      if(a.x === b.x){
+          const x = a.x; const z0 = Math.min(a.z,b.z) + ROOM_HALF; const z1 = Math.max(a.z,b.z) - ROOM_HALF;
+          if(z1 > z0){ const len = z1-z0, cz = (z0+z1)/2;
+              addWall(x - CORR_W/2 - WALL_THICK/2, cz, WALL_THICK, len);
+              addWall(x + CORR_W/2 + WALL_THICK/2, cz, WALL_THICK, len);
+          }
+      } else if(a.z === b.z){
+          const z = a.z; const x0 = Math.min(a.x,b.x) + ROOM_HALF; const x1 = Math.max(a.x,b.x) - ROOM_HALF;
+          if(x1 > x0){ const len = x1-x0, cx = (x0+x1)/2;
+              addWall(cx, z - CORR_W/2 - WALL_THICK/2, len, WALL_THICK);
+              addWall(cx, z + CORR_W/2 + WALL_THICK/2, len, WALL_THICK);
+          }
+      } else {
+          // hành lang chéo dogleg: đi ngang trước rồi dọc, không dựng tường chắn (khu vực mở)
+      }
+  }
+
+  // Khúc cua chữ Z ngay giữa Mid: một vách chặn nửa phải ở node MID (phía T),
+  // một vách chặn nửa trái ở node MID_LOW (phía CT), lệch nhau nên không có
+  // đường ngắm thẳng nào xuyên suốt từ T Spawn xuống CT Spawn - phải đi vòng qua
+  // khe hở bên trái rồi bên phải (hoặc ngược lại) mới nhìn thấy đối phương.
+  function buildMidChicane(){
+      addWall(1.6, 10, 4.2, 2.4);   // chặn nửa phải tại MID (phía T Mid nhìn xuống)
+      addWall(-1.6, -10, 4.2, 2.4); // chặn nửa trái tại MID_LOW (phía CT Mid nhìn lên)
+  }
+
+  function buildDistrictMap(){
+    const groundMat = new THREE.MeshStandardMaterial({ color:0xdcd1c1, roughness:1.0 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(ARENA_SIZE*2, ARENA_SIZE*2), groundMat);
+    ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+    Object.keys(NAV_NODES).forEach(buildRoom);
+    EDGES.forEach(([a,b]) => buildCorridor(a,b));
+
+    // Tường bao ngoài
+    addWall(0, -ARENA_SIZE, ARENA_SIZE*2, 2); addWall(0, ARENA_SIZE, ARENA_SIZE*2, 2);
+    addWall(-ARENA_SIZE, 0, 2, ARENA_SIZE*2); addWall(ARENA_SIZE, 0, 2, ARENA_SIZE*2);
+
+    function siteBorder(site, colorHex){
+        const w = site.maxX - site.minX; const d = site.maxZ - site.minZ;
+        const cx = (site.maxX + site.minX)/2; const cz = (site.maxZ + site.minZ)/2;
+        const geo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, d));
+        const mat = new THREE.LineBasicMaterial({color: colorHex, linewidth: 2});
+        const border = new THREE.LineSegments(geo, mat); border.rotation.x = -Math.PI/2; border.position.set(cx, 0.05, cz);
+        scene.add(border);
+        const fillMat = new THREE.MeshBasicMaterial({color: colorHex, transparent:true, opacity:0.18});
+        const fill = new THREE.Mesh(new THREE.PlaneGeometry(w, d), fillMat); fill.rotation.x = -Math.PI/2; fill.position.set(cx, 0.03, cz);
+        scene.add(fill);
+    }
+    siteBorder(SITE_A, 0xb7ad55); siteBorder(SITE_B, 0xb7ad55);
+
+    // Vật che chắn (cover) trong 2 site, Mid, Cubby và 2 phòng Heaven sau site
+    addWall(-44,-29,2,2); addWall(-36,-21,2,2);
+    addWall(44,-29,2,2); addWall(36,-21,2,2);
+    addWall(-18,7,2,2); addWall(3,-8,2,2);
+    addWall(-43,-42,2,2); addWall(43,-42,2,2);
+
+    buildMidChicane();
+    buildFreezeBarriers();
+  }
+
+  // Rào chắn mờ (translucent) chặn các lane chính trong pha mua đồ, giống freeze time của Valorant.
+  // Chỉ hiển thị & có va chạm khi gameState === STATE.BUY.
+  function buildFreezeBarriers(){
+      freezeBarrierMeshes.forEach(fb => scene.remove(fb.mesh));
+      freezeBarrierMeshes = [];
+      const barMat = new THREE.MeshBasicMaterial({ color:0x1be3c2, transparent:true, opacity:0.35, side:THREE.DoubleSide });
+      FREEZE_BLOCKED_EDGES.forEach(([nA, nB])=>{
+          const a = NAV_NODES[nA], b = NAV_NODES[nB];
+          const cx = (a.x+b.x)/2, cz = (a.z+b.z)/2;
+          const vertical = a.x === b.x;
+          const w = vertical ? CORR_W : WALL_THICK*1.2;
+          const d = vertical ? WALL_THICK*1.2 : CORR_W;
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, WALL_H*0.9, d), barMat);
+          mesh.position.set(cx, WALL_H*0.45, cz);
+          scene.add(mesh);
+          const collider = {minX:cx-w/2, maxX:cx+w/2, minZ:cz-d/2, maxZ:cz+d/2};
+          freezeBarrierMeshes.push({mesh, collider, active:false});
+      });
+  }
+  function setFreezeBarriersActive(active){
+      freezeBarrierMeshes.forEach(fb=>{
+          fb.active = active;
+          fb.mesh.visible = active;
+          if(active){ if(!colliders.includes(fb.collider)) colliders.push(fb.collider); }
+          else { const idx = colliders.indexOf(fb.collider); if(idx >= 0) colliders.splice(idx,1); }
+      });
+  }
+
+  function checkInSite(pos) {
+      if (pos.x >= SITE_A.minX && pos.x <= SITE_A.maxX && pos.z >= SITE_A.minZ && pos.z <= SITE_A.maxZ) return 'A';
+      if (pos.x >= SITE_B.minX && pos.x <= SITE_B.maxX && pos.z >= SITE_B.minZ && pos.z <= SITE_B.maxZ) return 'B';
+      return null;
+  }
+
+  /* ============================================================
+     VŨ KHÍ RỚT (DROP) - nhặt bằng F khi gục địch/đồng đội
+  ============================================================ */
+  let droppedWeapons = []; // {mesh, gunKey, pos}
+  const DROP_PICK_RADIUS = 2.2;
+  function dropWeaponAt(pos, gunKey){
+      if(!gunKey || WEAPONS[gunKey].type === 'melee') return; // dao không rớt
+      const group = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.15,0.9), new THREE.MeshStandardMaterial({color:0xf2c14e, emissive:0x332200}));
+      base.position.y = 0.1; group.add(base);
+      group.position.copy(pos); group.position.y = 0;
+      scene.add(group);
+      droppedWeapons.push({ mesh: group, gunKey, pos: group.position });
+  }
+  function findNearbyDrop(pos){
+      let best = null; let bestDist = DROP_PICK_RADIUS;
+      droppedWeapons.forEach(dw=>{ const dist = pos.distanceTo(dw.pos); if(dist < bestDist){ bestDist = dist; best = dw; } });
+      return best;
+  }
+  function pickupDrop(dw){
+      // Súng hiện có được thả lại tại chỗ nhặt (đổi chỗ vũ khí, giống Valorant)
+      if(WEAPONS[currentGun].type !== 'melee' && currentGun !== 'classic') dropWeaponAt(dw.pos.clone(), currentGun);
+      equipGun(dw.gunKey, true);
+      scene.remove(dw.mesh);
+      droppedWeapons = droppedWeapons.filter(x => x !== dw);
+  }
+
+  /* ============================================================
+     INIT & EVENT BINDINGS
+  ============================================================ */
+  function init(){
+    scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB); scene.fog = new THREE.FogExp2(0x87CEEB, 0.012);
+    camera = new THREE.PerspectiveCamera(71, window.innerWidth/window.innerHeight, 0.1, 200);
+    pitchObject = new THREE.Object3D(); pitchObject.add(camera); yawObject = new THREE.Object3D(); yawObject.add(pitchObject); scene.add(yawObject);
+
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias:false });
+    renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; clock = new THREE.Clock();
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xfffae6, 0.8); sun.position.set(30, 50, 20); sun.castShadow = true; sun.shadow.mapSize.set(1024,1024);
+    sun.shadow.camera.left = -60; sun.shadow.camera.right = 60; sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60; scene.add(sun);
+
+    buildDistrictMap(); window.gunModel = new THREE.Group(); camera.add(window.gunModel); buildWeaponMesh(currentGun); buildShopUI();
+
+    window.addEventListener('resize', onResize);
+    document.addEventListener('keydown', onKeyDown); document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mousedown', onMouseDown); document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('contextmenu', e => e.preventDefault()); document.addEventListener('pointerlockchange', onPointerLockChange);
+
+    if(el('startBtn')) el('startBtn').addEventListener('click', startGame);
+    if(el('resumeBtn')) el('resumeBtn').addEventListener('click', resumeGame);
+    if(el('settingsBtnStart')) el('settingsBtnStart').addEventListener('click', ()=> { el('startScreen').classList.add('hidden'); el('settingsScreen').classList.remove('hidden'); });
+    if(el('settingsBtnPause')) el('settingsBtnPause').addEventListener('click', ()=> { el('pauseOverlay').classList.add('hidden'); el('settingsScreen').classList.remove('hidden'); });
+    if(el('shopBtnPause')) el('shopBtnPause').addEventListener('click', toggleShop);
+    if(el('closeShopBtn')) el('closeShopBtn').addEventListener('click', toggleShop);
+    if(el('skipBuyBtn')) el('skipBuyBtn').addEventListener('click', endBuyPhase);
+    if(el('matchRestartBtn')) el('matchRestartBtn').addEventListener('click', ()=> location.reload());
+
+    document.querySelectorAll('.diffBtn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.diffBtn').forEach(b => b.classList.remove('btnActive'));
+            e.target.classList.add('btnActive'); selectedDifficulty = parseInt(e.target.dataset.diff);
+        });
+    });
+    document.querySelectorAll('.roleBtn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.roleBtn').forEach(b => b.classList.remove('btnActive'));
+            e.target.classList.add('btnActive'); playerIsAttacker = e.target.dataset.role === 'attack';
+        });
+    });
+
+    initSettingsUI(); applyCrosshair();
+    renderer.domElement.addEventListener('click', ()=>{
+        if(gameState === STATE.PLAYING || gameState === STATE.BUY) renderer.domElement.requestPointerLock();
+        else if(gameState === STATE.PAUSED) resumeGame();
+    });
+    animate();
+  }
+
+  function onResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function pauseGame(){
+      if(gameState !== STATE.PLAYING) return;
+      gameState = STATE.PAUSED;
+      toggleADS(false); mouseDown = false;
+      if(document.pointerLockElement) document.exitPointerLock();
+      // Giống Valorant: không thể mở shop khi round đã bắt đầu (chỉ pha buy mới mua được)
+      if(el('shopBtnPause')) el('shopBtnPause').classList.add('hidden');
+      if(el('pauseHint')) el('pauseHint').textContent = 'Cửa hàng chỉ mở trong pha mua đồ đầu round.';
+      el('pauseOverlay').classList.remove('hidden');
+  }
+  function resumeGame(){
+      if(gameState !== STATE.PAUSED && gameState !== STATE.SHOP) return;
+      el('pauseOverlay').classList.add('hidden');
+      el('buyMenuOverlay').classList.add('hidden');
+      gameState = STATE.PLAYING;
+      renderer.domElement.requestPointerLock();
+  }
+
+  /* ============================================================
+     BUY PHASE (15 giây đầu round: mua súng + giáp, rào chắn các lane)
+  ============================================================ */
+  function enterBuyPhase(){
+      gameState = STATE.BUY;
+      buyPhaseTime = BUY_PHASE_SECONDS;
+      toggleADS(false); mouseDown = false;
+      if(document.pointerLockElement) document.exitPointerLock();
+      el('pauseOverlay').classList.add('hidden');
+      el('skipBuyBtn').classList.remove('hidden');
+      el('buyMenuOverlay').classList.remove('hidden');
+      setFreezeBarriersActive(true);
+      updateShopUI();
+  }
+  function endBuyPhase(){
+      if(gameState !== STATE.BUY) return;
+      // Tự động đóng bảng mua đồ và KHÔNG cho mở lại trong round, giống Valorant
+      el('buyMenuOverlay').classList.add('hidden');
+      el('skipBuyBtn').classList.add('hidden');
+      setFreezeBarriersActive(false);
+      gameState = STATE.PLAYING;
+      roundTime = 100;
+      renderer.domElement.requestPointerLock();
+  }
+
+  /* ============================================================
+     SHOP & WEAPON MESH
+  ============================================================ */
+  function equipGun(gunKey, keepAmmo){
+      const gun = WEAPONS[gunKey];
+      currentGun = gunKey;
+      player.maxAmmo = gun.ammo;
+      if(!keepAmmo){ player.ammo = gun.ammo; player.reserveAmmo = gun.ammo === Infinity ? 0 : gun.ammo * 3; }
+      else if(player.ammo > gun.ammo) player.ammo = gun.ammo;
+      document.getElementById('gunNamePanel').textContent = gun.name;
+      buildWeaponMesh(gunKey); updateHUD(); updateShopUI();
+  }
+  window.buyWeapon = function(gunKey) {
+      if(gameState !== STATE.BUY && gameState !== STATE.SHOP) return;
+      const gun = WEAPONS[gunKey];
+      if (player.money >= gun.price) {
+          player.money -= gun.price;
+          equipGun(gunKey, false);
+      }
+  }
+  window.buyArmor = function(armorKey) {
+      if(gameState !== STATE.BUY && gameState !== STATE.SHOP) return;
+      const a = ARMORS[armorKey];
+      if(!a || player.armor >= a.hp || player.money < a.price) return;
+      const diff = a.hp - player.armor;
+      player.money -= a.price; player.maxHealth += diff; player.health += diff; player.armor = a.hp;
+      updateHUD(); updateShopUI();
+  }
+  function buildShopUI(){
+      const grid = el('weaponGrid'); grid.innerHTML = '';
+      grid.innerHTML += `<div class="shopCatHead">GIÁP</div>`;
+      Object.entries(ARMORS).forEach(([k,a])=>{
+          grid.innerHTML += `<div class="weapon-card" id="shop-armor-${k}" onclick="buyArmor('${k}')"><h3>${a.name}</h3><p>Cộng thêm ${a.hp} máu (giáp)</p><div class="price">${a.price}$</div></div>`;
+      });
+      SHOP_ORDER.forEach(cat=>{
+          const items = Object.entries(WEAPONS).filter(([k,g])=> g.cat === cat);
+          if(!items.length) return;
+          grid.innerHTML += `<div class="shopCatHead">${cat}</div>`;
+          items.forEach(([k,g])=>{
+              const ammoTxt = g.ammo === Infinity ? '∞' : g.ammo;
+              grid.innerHTML += `<div class="weapon-card" id="shop-item-${k}" onclick="buyWeapon('${k}')"><h3>${g.name}</h3><p>${g.isAuto?'Tự động':'Bán tự động'} / Đạn: ${ammoTxt}</p><p>ST: Đầu ${g.dmgHead} | Thân ${g.dmgBody}</p><div class="price">${g.price===0?'MIỄN PHÍ':g.price+'$'}</div></div>`;
+          });
+      });
+  }
+  function updateShopUI(){
+      el('shopMoneyDisplay').textContent = player.money;
+      el('shopArmorDisplay').textContent = player.armor;
+      el('buyPhaseKicker').textContent = (gameState === STATE.BUY)
+          ? `PHA MUA ĐỒ — CÒN ${Math.max(0,Math.ceil(buyPhaseTime))}s`
+          : 'KHO VŨ KHÍ & GIÁP';
+      for(const [k,g] of Object.entries(WEAPONS)){
+          const c = el(`shop-item-${k}`); if(!c) continue;
+          if(player.money < g.price) c.classList.add('locked'); else c.classList.remove('locked');
+          c.classList.toggle('equipped', currentGun === k);
+      }
+      for(const [k,a] of Object.entries(ARMORS)){
+          const c = el(`shop-armor-${k}`); if(!c) continue;
+          if(player.money < a.price || player.armor >= a.hp) c.classList.add('locked'); else c.classList.remove('locked');
+          c.classList.toggle('equipped', player.armor === a.hp && a.hp > 0);
+      }
+  }
+  // Shop chỉ có thể mở trong pha BUY (giống Valorant: không mở được giữa round)
+  function toggleShop() {
+      if(gameState !== STATE.BUY) return;
+      const overlay = el('buyMenuOverlay');
+      const isOpen = !overlay.classList.contains('hidden');
+      if(isOpen){
+          overlay.classList.add('hidden');
+          if(!document.pointerLockElement) renderer.domElement.requestPointerLock();
+      } else {
+          if(document.pointerLockElement) document.exitPointerLock();
+          overlay.classList.remove('hidden'); updateShopUI();
+      }
+  }
+
+  function buildWeaponMesh(gunKey) {
+      while(window.gunModel.children.length > 0){ window.gunModel.remove(window.gunModel.children[0]); }
+
+      const type = WEAPONS[gunKey].type;
+      const matDark = new THREE.MeshStandardMaterial({ color: 0x1a1c23, roughness: 0.3 }); const matAccent = new THREE.MeshStandardMaterial({ color: 0x1be3c2 });
+      let body, barrel, scope, handle;
+      if(type === 'pistol') { body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.25), matDark); window.gunBasePos = new THREE.Vector3(0.2, -0.2, -0.4); }
+      else if(type === 'smg') { body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.4), matDark); barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.2), matDark); barrel.position.set(0,0,-0.3); window.gunModel.add(barrel); window.gunBasePos = new THREE.Vector3(0.22, -0.25, -0.45); }
+      else if(type === 'shotgun') { body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.15, 0.45), matDark); barrel = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.3), matDark); barrel.position.set(0,0.01,-0.35); window.gunModel.add(barrel); window.gunBasePos = new THREE.Vector3(0.24, -0.26, -0.42); }
+      else if(type === 'rifle') { body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.55), matDark); barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.3), matDark); barrel.position.set(0,0.02,-0.4); const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.08), matAccent); mag.position.set(0,-0.15,-0.1); window.gunModel.add(barrel, mag); window.gunBasePos = new THREE.Vector3(0.25, -0.25, -0.5); }
+      else if(type === 'sniper') { body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.6), matDark); barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), matDark); barrel.position.set(0,0.02,-0.6); scope = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.3), matAccent); scope.position.set(0, 0.15, -0.1); window.gunModel.add(barrel, scope); window.gunBasePos = new THREE.Vector3(0.3, -0.3, -0.6); }
+      else if(type === 'heavy') { body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.65), matDark); barrel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), matAccent); barrel.position.set(0,0,-0.5); window.gunModel.add(barrel); window.gunBasePos = new THREE.Vector3(0.35, -0.35, -0.5); }
+      else if(type === 'melee') { body = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.35), matAccent); handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.12), matDark); handle.position.set(0,0,0.2); window.gunModel.add(handle); window.gunBasePos = new THREE.Vector3(0.22, -0.22, -0.35); }
+      window.gunModel.add(body); window.gunModel.position.copy(window.gunBasePos);
+  }
+
+  /* ============================================================
+     5v5 AI THÔNG MINH: mô hình có đầu/thân/tay/chân, pathfinding thật (BFS)
+     trên đồ thị phòng/hành lang, dạt (strafe) khi giao tranh, rút lui khi
+     máu thấp, ưu tiên né bị dồn vào cùng 1 điểm tuần tra, "callout" chia sẻ
+     vị trí địch cho đồng đội, đội tấn công tự biết rush site để cắm bom,
+     đội phòng thủ tự biết gỡ bom, rớt vũ khí khi bị hạ (nhặt lại bằng F).
+  ============================================================ */
+  const GEO = {
+      torso: new THREE.BoxGeometry(0.5, 0.62, 0.3),
+      head:  new THREE.BoxGeometry(0.28, 0.28, 0.28),
+      arm:   new THREE.BoxGeometry(0.15, 0.55, 0.15),
+      leg:   new THREE.BoxGeometry(0.18, 0.62, 0.18)
+  };
+  const MAT_ALLY = new THREE.MeshStandardMaterial({ color: 0x1be3c2 });
+  const MAT_ENEMY = new THREE.MeshStandardMaterial({ color: 0xff4655 });
+  const MAT_LIMB_DARK = new THREE.MeshStandardMaterial({ color: 0x14171d, roughness: 0.85 });
+  const PATROL_NODES = Object.keys(NAV_NODES).filter(k => k !== 'T_SPAWN' && k !== 'CT_SPAWN');
+  const AGENT_GUNS = ['ghost','sheriff','spectre','bulldog','phantom','vandal','marshal','guardian'];
+
+  class Agent {
+    constructor(team, position){
+      this.team = team;
+      this.group = new THREE.Group(); this.group.position.copy(position);
+
+      const mat = this.team === 1 ? MAT_ALLY : MAT_ENEMY;
+      const torso = new THREE.Mesh(GEO.torso, mat); torso.position.y = 1.05;
+      const head = new THREE.Mesh(GEO.head, mat); head.position.y = 1.55;
+      const armL = new THREE.Mesh(GEO.arm, mat); armL.position.set(-0.34, 1.05, 0);
+      const armR = new THREE.Mesh(GEO.arm, mat); armR.position.set(0.34, 1.05, 0);
+      const legL = new THREE.Mesh(GEO.leg, MAT_LIMB_DARK); legL.position.set(-0.15, 0.4, 0);
+      const legR = new THREE.Mesh(GEO.leg, MAT_LIMB_DARK); legR.position.set(0.15, 0.4, 0);
+
+      head.userData = { agent: this, part: 'head' };
+      torso.userData = { agent: this, part: 'body' };
+      armL.userData = { agent: this, part: 'body' };
+      armR.userData = { agent: this, part: 'body' };
+
+      this.group.add(torso, head, armL, armR, legL, legR);
+      this.limbs = { armL, armR, legL, legR };
+      this.hitMeshes = [torso, head, armL, armR];
+
+      this.stats = DIFF_STATS[selectedDifficulty];
+      this.maxHealth = (this.team === 2) ? this.stats.hp : 150;
+      this.health = this.maxHealth;
+      this.alive = true; this.speed = 3.8 + Math.random()*0.5;
+      this.lastShot = performance.now();
+      this.defuseProgress = 0;
+      this.carriedGun = AGENT_GUNS[Math.floor(Math.random()*AGENT_GUNS.length)];
+
+      this.path = null; this._pathTarget = null;
+      this.state = 'patrol'; this.targetNode = this.pickRandomNode();
+
+      // Fog-of-war: chỉ khi đội của người chơi thực sự nhìn thấy agent này thì
+      // nó mới hiện trên minimap; lastKnownPos lưu vị trí cuối cùng bị lộ.
+      this.spotted = false; this.lastKnownPos = null; this.lastKnownTime = 0;
+
+      // Vai trò tấn công/phòng thủ
+      this.preferredSite = Math.random() < 0.5 ? 'A_SITE' : 'B_SITE';
+      this.plantHoldProgress = 0;
+
+      // Dạt qua lại khi giao tranh cho tự nhiên & khó bắn hơn
+      this.strafeDir = Math.random() < 0.5 ? 1 : -1; this.strafeTimer = 0.5 + Math.random();
+      this._walkT = Math.random()*10;
+    }
+
+    pickRandomNode() {
+        const candidates = PATROL_NODES.filter(n => agents.filter(a => a.team === this.team && a.alive && a.targetNode === n).length === 0);
+        const pool = candidates.length ? candidates : PATROL_NODES;
+        return pool[Math.floor(Math.random()*pool.length)];
+    }
+
+    takeDamage(amount){ if(!this.alive) return; this.health -= amount; if(this.health <= 0) this.die(); }
+    die(){
+        this.alive = false;
+        dropWeaponAt(this.group.position.clone(), this.carriedGun);
+        scene.remove(this.group);
+        if (this.team === 2) { player.money += 300; pushKillfeed(); }
+        this.spotted = false;
+        updateHUD();
+    }
+
+    getOpponents() {
+        let opps = agents.filter(a => a.alive && a.team !== this.team).map(a => a.group.position);
+        if (this.team === 2 && player.health > 0) opps.push(yawObject.position);
+        return opps;
+    }
+
+    ensurePath(){
+        if(this._pathTarget !== this.targetNode || this.path === null){
+            const startNode = getClosestNode(this.group.position);
+            this.path = bfsPath(startNode, this.targetNode).slice(1);
+            this._pathTarget = this.targetNode;
+        }
+    }
+    _stepToward(tx, tz, dt){
+        const dist = Math.hypot(tx - this.group.position.x, tz - this.group.position.z);
+        if(dist < 1.6) return true;
+        const dx = tx - this.group.position.x, dz = tz - this.group.position.z;
+        const invLen = 1 / Math.hypot(dx,dz);
+        let nx = this.group.position.x + dx*invLen*this.speed*dt;
+        let nz = this.group.position.z + dz*invLen*this.speed*dt;
+        if(collidesXZ(nx, nz, 0.4)){
+            if(!collidesXZ(nx, this.group.position.z, 0.4)) nz = this.group.position.z;
+            else if(!collidesXZ(this.group.position.x, nz, 0.4)) nx = this.group.position.x;
+            else { this.path = null; return false; }
+        }
+        this.group.position.set(nx, this.group.position.y, nz);
+        this.group.lookAt(nx, this.group.position.y, nz);
+        return false;
+    }
+    moveAlongPath(dt){
+        if(!this.path || this.path.length === 0){
+            const node = NAV_NODES[this.targetNode]; this._stepToward(node.x, node.z, dt); return;
+        }
+        const node = NAV_NODES[this.path[0]];
+        if(this._stepToward(node.x, node.z, dt)) this.path.shift();
+    }
+    _animateWalk(dt){
+        this._walkT += dt * 6;
+        const swing = Math.sin(this._walkT) * 0.4;
+        this.limbs.legL.rotation.x = swing; this.limbs.legR.rotation.x = -swing;
+        this.limbs.armL.rotation.x = -swing * 0.8; this.limbs.armR.rotation.x = swing * 0.8;
+    }
+
+    update(dt){
+      if(!this.alive) return;
+      // Trong pha mua đồ, AI đứng yên sau rào chắn giống người chơi
+      if(gameState === STATE.BUY) return;
+      const now = performance.now();
+
+      // 1. Kiểm tra tầm nhìn (LOS) tới đối phương
+      let opps = this.getOpponents();
+      let canSee = null; let minDist = 40;
+      for(let p of opps) {
+          let dist = this.group.position.distanceTo(p);
+          if (dist < minDist) {
+              losRay.set(this.group.position.clone().setY(1.5), new THREE.Vector3().subVectors(p, this.group.position).normalize());
+              losRay.far = dist;
+              if (losRay.intersectObjects(wallMeshes, false).length === 0) { canSee = p; minDist = dist; break; }
+          }
+      }
+
+      // 2. Xác định điểm đến (site khi có bom, rút lui khi máu thấp, rush site
+      //    để cắm bom nếu là đội tấn công, hoặc tuần tra/rally theo callout)
+      if (bombState === 'planted') {
+          const siteNode = checkInSite(plantedPos) === 'A' ? 'A_SITE' : 'B_SITE';
+          this.targetNode = siteNode;
+          if (this.team === DEFEND_TEAM) {
+              const distToBomb = this.group.position.distanceTo(plantedPos);
+              this.state = distToBomb < 2.2 ? 'defusing' : 'moving';
+          } else this.state = 'moving';
+      } else if (!canSee && this.health < this.maxHealth * 0.35) {
+          this.targetNode = spawnNodeForTeam(this.team);
+          this.state = 'retreat';
+      } else if (this.team === ATTACK_TEAM) {
+          const curSite = checkInSite(this.group.position);
+          if (curSite === siteLetter(this.preferredSite)) {
+              this.state = 'planting';
+          } else {
+              this.targetNode = this.preferredSite;
+              this.state = 'moving';
+          }
+      } else {
+          this.state = 'moving';
+          const tn = NAV_NODES[this.targetNode];
+          const atTarget = tn && this.group.position.distanceTo(new THREE.Vector3(tn.x,0,tn.z)) < 2.5;
+          if (!this.targetNode || atTarget) {
+              const spotted = teamSpotted[this.team];
+              if (!canSee && spotted && now - spotted.time < 2500 && bombState === 'unplanted') {
+                  this.targetNode = getClosestNode(spotted.pos);
+              } else {
+                  this.targetNode = this.pickRandomNode();
+              }
+              this.path = null;
+          }
+      }
+
+      if (canSee) { teamSpotted[this.team] = { pos: canSee.clone(), time: now }; }
+
+      // 3. Combat, dạt tránh đạn, cắm/gỡ bom, hoặc di chuyển
+      if (canSee) {
+          this.group.lookAt(canSee.x, this.group.position.y, canSee.z);
+          this.plantHoldProgress = 0;
+
+          // Dạt ngang khi giao tranh cho khó bắn trúng & tự nhiên hơn
+          this.strafeTimer -= dt;
+          if (this.strafeTimer <= 0) { this.strafeDir *= -1; this.strafeTimer = 0.5 + Math.random()*0.7; }
+          const dirToTarget = new THREE.Vector3(canSee.x - this.group.position.x, 0, canSee.z - this.group.position.z).normalize();
+          const strafeVec = new THREE.Vector3(-dirToTarget.z, 0, dirToTarget.x).multiplyScalar(this.strafeDir * this.speed * 0.45 * dt);
+          const snx = this.group.position.x + strafeVec.x, snz = this.group.position.z + strafeVec.z;
+          if (!collidesXZ(snx, snz, 0.4)) this.group.position.set(snx, this.group.position.y, snz);
+          this._animateWalk(dt);
+
+          let reactTime = (this.team===2) ? this.stats.react : 650;
+          let hitChance = (this.team===2) ? this.stats.acc : 0.5;
+          let dmgMult = (this.team===2) ? this.stats.dmgMult : 1;
+
+          if (now - this.lastShot > reactTime) {
+              this.lastShot = now;
+              spawnTracer(this.group.position.clone().setY(1.5), canSee, this.team === 1 ? 0x1be3c2 : 0xff4655);
+              if (Math.random() < hitChance) {
+                  if (canSee === yawObject.position) damagePlayer(25 * dmgMult);
+                  else { let hitAgent = agents.find(a => a.group.position === canSee); if (hitAgent) hitAgent.takeDamage(40 * dmgMult); }
+              }
+          }
+      } else if (this.state === 'defusing') {
+          // Xử lý tiến trình gỡ bom ở Main Loop
+      } else if (this.state === 'planting') {
+          this.plantHoldProgress = (this.plantHoldProgress||0) + dt;
+          if (this.plantHoldProgress >= 4 && bombState === 'unplanted') {
+              plantBombAt(this.group.position);
+          }
+      } else {
+          this.plantHoldProgress = 0;
+          this.ensurePath();
+          this.moveAlongPath(dt);
+          this._animateWalk(dt);
+      }
+    }
+  }
+
+  function collidesXZ(x, z, radius){
+    if(x < -ARENA_SIZE || x > ARENA_SIZE || z < -ARENA_SIZE || z > ARENA_SIZE) return true;
+    for(let i=0;i<colliders.length;i++){ const c = colliders[i]; if(x > c.minX - radius && x < c.maxX + radius && z > c.minZ - radius && z < c.maxZ + radius) return true; }
+    return false;
+  }
+
+  /* ============================================================
+     TẦM NHÌN ĐỘI (FOG OF WAR CHO MINIMAP)
+     Kẻ địch chỉ hiện chấm đỏ trên minimap khi có ít nhất 1 thành viên
+     team1 (người chơi hoặc đồng minh) thực sự thấy chúng (LOS không bị
+     tường chặn). Khi mất dấu, vị trí cuối cùng lưu lại để vẽ dấu "?".
+  ============================================================ */
+  function updateVisibility(){
+      const now = performance.now();
+      const viewers = [];
+      if(player.health > 0) viewers.push(yawObject.position);
+      agents.forEach(a=>{ if(a.alive && a.team === 1) viewers.push(a.group.position); });
+      agents.forEach(a=>{
+          if(a.team === 1 || !a.alive) return;
+          let seen = false;
+          for(let i=0;i<viewers.length;i++){
+              const vp = viewers[i];
+              const dist = vp.distanceTo(a.group.position);
+              if(dist > 55) continue;
+              losRay.set(vp.clone().setY(1.5), new THREE.Vector3().subVectors(a.group.position, vp).normalize());
+              losRay.far = dist;
+              if(losRay.intersectObjects(wallMeshes, false).length === 0){ seen = true; break; }
+          }
+          a.spotted = seen;
+          if(seen){ a.lastKnownPos = a.group.position.clone(); a.lastKnownTime = now; }
+      });
+  }
+
+  /* ============================================================
+     SHOOTING, RELOAD (đạn dự trữ có hạn) & PLAYER DAMAGE
+  ============================================================ */
+  function tryReload(){
+    if(player.reloading || player.maxAmmo === Infinity || player.ammo === player.maxAmmo || gameState !== STATE.PLAYING) return;
+    if(player.reserveAmmo <= 0) return; // hết đạn dự trữ, không thể nạp -> phải đổi súng
+    player.reloading = true; toggleADS(false); if(el('reloadTag')) el('reloadTag').classList.remove('hidden');
+    setTimeout(()=>{
+        const need = player.maxAmmo - player.ammo;
+        const take = Math.min(need, player.reserveAmmo);
+        player.ammo += take; player.reserveAmmo -= take;
+        player.reloading = false; if(el('reloadTag')) el('reloadTag').classList.add('hidden'); updateHUD();
+    }, WEAPONS[currentGun].reloadTime);
+  }
+
+  function forceSwitchToBackup(){
+      // Hết đạn hoàn toàn (băng đạn = 0 và dự trữ = 0) -> tự động đổi sang dao găm
+      if(currentGun !== 'knife_default'){ equipGun('knife_default', false); }
+  }
+
+  function tryFire(){
+    const now = performance.now(); const gun = WEAPONS[currentGun];
+    if(player.reloading || now - lastFireTime < gun.fireRate) return;
+    if(gun.type !== 'melee' && player.ammo <= 0){
+        if(player.reserveAmmo > 0) tryReload(); else forceSwitchToBackup();
+        return;
+    }
+
+    lastFireTime = now; if(gun.type !== 'melee') player.ammo--; updateHUD(); fireRecoil(gun.isAuto);
+
+    raycaster.setFromCamera({x:0,y:0}, camera);
+    raycaster.far = gun.type === 'melee' ? 3.2 : 200;
+    let dest = new THREE.Vector3(); raycaster.ray.at(Math.min(raycaster.far, 50), dest);
+    spawnTracer(yawObject.position.clone().setY(1.5), dest, gun.type === 'melee' ? 0xffffff : 0xf2c14e);
+
+    const targets = []; agents.forEach(a=>{ if(a.alive && a.team === 2) targets.push(...a.hitMeshes); });
+    const hits = raycaster.intersectObjects(targets.concat(wallMeshes), false);
+    raycaster.far = Infinity;
+
+    if(hits.length > 0 && hits[0].object.userData && hits[0].object.userData.agent){
+        const agent = hits[0].object.userData.agent; const part = hits[0].object.userData.part;
+        let dmg = gun.dmgBody; if (part === 'head') dmg = gun.dmgHead;
+        agent.takeDamage(dmg); el('hitmarker').classList.add('show'); setTimeout(()=> el('hitmarker').classList.remove('show'), 90);
+    }
+
+    if(gun.type !== 'melee' && player.ammo <= 0 && player.reserveAmmo <= 0) forceSwitchToBackup();
+  }
+
+  function damagePlayer(amount){
+      player.health -= amount; if(player.health < 0) player.health = 0;
+      el('dmgFlash').style.opacity = '1'; setTimeout(()=>{ el('dmgFlash').style.opacity = '0'; }, 220); updateHUD();
+      if(player.health <= 0) dropWeaponAt(yawObject.position.clone(), currentGun !== 'knife_default' ? currentGun : null);
+  }
+
+  function fireRecoil(isAuto){
+    if(window.gunModel && !isADS){
+      window.gunModel.position.z = window.gunBasePos.z + 0.08; if (isAuto) pitchObject.rotation.x += 0.006;
+      setTimeout(()=>{ window.gunModel.position.z = window.gunBasePos.z; }, 60);
+    } else if (isADS) { pitchObject.rotation.x += 0.003; }
+  }
+
+  function pushKillfeed(){
+    const feed = el('killfeed'); const item = document.createElement('div');
+    item.className = 'kf-item'; item.textContent = '💀 ĐÃ HẠ ĐỊCH  +300$'; feed.appendChild(item);
+    requestAnimationFrame(()=> item.classList.add('show'));
+    setTimeout(()=>{ item.style.opacity = '0'; item.style.transform = 'translateX(20px)'; setTimeout(()=> item.remove(), 300); }, 2200);
+    while(feed.children.length > 4){ feed.removeChild(feed.firstChild); }
+  }
+
+  function spawnTracer(from, to, colorHex){
+    const mat = new THREE.LineBasicMaterial({ color:colorHex, transparent:true, opacity:0.8 });
+    const geom = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const line = new THREE.Line(geom, mat); scene.add(line); let life = 0;
+    function fade(){ life += 1; mat.opacity -= 0.15; if(mat.opacity <= 0) scene.remove(line); else requestAnimationFrame(fade); } fade();
+  }
+
+  /* ============================================================
+     MINIMAP DRAWING (kèm fog of war)
+  ============================================================ */
+  function drawMinimap() {
+      const cvs = el('minimapCanvas'); const ctx = cvs.getContext('2d'); ctx.clearRect(0,0, cvs.width, cvs.height);
+      const s = cvs.width / (ARENA_SIZE * 2);
+
+      ctx.fillStyle = '#445';
+      colliders.forEach(col => { let x = (col.minX + ARENA_SIZE) * s; let y = (col.minZ + ARENA_SIZE) * s; let w = (col.maxX - col.minX) * s; let h = (col.maxZ - col.minZ) * s; ctx.fillRect(x, y, w, h); });
+      ctx.fillStyle = '#b7ad5555'; ctx.fillRect((SITE_A.minX + ARENA_SIZE)*s, (SITE_A.minZ + ARENA_SIZE)*s, (SITE_A.maxX - SITE_A.minX)*s, (SITE_A.maxZ - SITE_A.minZ)*s);
+      ctx.fillRect((SITE_B.minX + ARENA_SIZE)*s, (SITE_B.minZ + ARENA_SIZE)*s, (SITE_B.maxX - SITE_B.minX)*s, (SITE_B.maxZ - SITE_B.minZ)*s);
+
+      function dot(pos, color, radius) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc((pos.x + ARENA_SIZE)*s, (pos.z + ARENA_SIZE)*s, radius, 0, Math.PI*2); ctx.fill(); }
+      function questionMark(pos){
+          const px = (pos.x + ARENA_SIZE)*s, py = (pos.z + ARENA_SIZE)*s;
+          ctx.fillStyle = '#f2c14e';
+          ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1;
+          ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('?', px, py);
+      }
+
+      droppedWeapons.forEach(dw => dot(dw.pos, '#f2c14e', 2.5));
+      if(player.health > 0) dot(yawObject.position, '#ffffff', 4);
+
+      agents.forEach(a => {
+          if(!a.alive) return;
+          if(a.team === 1){ dot(a.group.position, '#1be3c2', 3); return; }
+          if(a.spotted){ dot(a.group.position, '#ff4655', 3); }
+          else if(a.lastKnownPos && (performance.now() - a.lastKnownTime) < 12000){ questionMark(a.lastKnownPos); }
+      });
+
+      if(bombState === 'planted') dot(plantedPos, '#f2c14e', 5);
+  }
+
+  function updateHUD(){
+    el('hpText').textContent = Math.max(0, Math.round(player.health)); el('healthBarFill').style.width = Math.max(0,(player.health/player.maxHealth*100)) + '%';
+    el('armorText').textContent = player.armor;
+    el('ammoCur').textContent = (player.ammo === Infinity ? '∞' : player.ammo); el('ammoMaxHUD').textContent = '/' + (player.maxAmmo === Infinity ? '∞' : player.maxAmmo);
+    if(el('ammoReserveHUD')) el('ammoReserveHUD').textContent = 'DỰ TRỮ: ' + (player.reserveAmmo === Infinity ? '∞' : player.reserveAmmo);
+    el('moneyCur').textContent = player.money;
+    el('scoreAlly').textContent = scoreAlly; el('scoreEnemy').textContent = scoreEnemy;
+
+    const tc = el('timerContainer');
+    if(gameState === STATE.BUY){
+        tc.classList.remove('alert'); tc.classList.add('buyphase');
+        el('timerHUD').textContent = `MUA ${Math.max(0, Math.ceil(buyPhaseTime))}s`;
+    } else {
+        tc.classList.remove('buyphase');
+        let m = Math.floor(Math.max(0, roundTime) / 60); let s = Math.floor(Math.max(0, roundTime) % 60);
+        el('timerHUD').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (bombState === 'planted') tc.classList.add('alert'); else tc.classList.remove('alert');
+    }
+    drawMinimap();
+  }
+
+  /* ============================================================
+     SPECTATE (chết -> xem qua góc nhìn đồng đội, hoặc góc nhìn quả bom)
+  ============================================================ */
+  function updateSpectate(dt){
+      if(window.gunModel) window.gunModel.visible = false;
+      el('crosshairMount').classList.add('hidden');
+      const tag = el('spectateTag');
+      const aliveAllies = agents.filter(a => a.team === 1 && a.alive);
+
+      if(aliveAllies.length > 0){
+          if(!spectateTarget || !aliveAllies.includes(spectateTarget)){ spectateTarget = aliveAllies[0]; }
+          spectateMode = 'ally';
+          const t = spectateTarget;
+          const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(t.group.quaternion);
+          const desiredPos = t.group.position.clone().addScaledVector(fwd, -2.4);
+          desiredPos.y = t.group.position.y + 2.1;
+          yawObject.position.lerp(desiredPos, Math.min(1, dt*5));
+          const dummy = new THREE.Object3D(); dummy.position.copy(yawObject.position);
+          dummy.lookAt(t.group.position.x, t.group.position.y + 1.2, t.group.position.z);
+          yawObject.rotation.y = dummy.rotation.y;
+          pitchObject.rotation.x = clamp(dummy.rotation.x, -0.6, 0.6);
+          tag.textContent = 'ĐANG QUAN SÁT ĐỒNG ĐỘI — CLICK CHUỘT ĐỂ ĐỔI GÓC NHÌN';
+          tag.classList.remove('hidden');
+      } else if(bombState === 'planted' && plantedPos){
+          spectateMode = 'bomb';
+          const angle = performance.now() * 0.0005;
+          yawObject.position.set(plantedPos.x + Math.cos(angle)*7, 3.2, plantedPos.z + Math.sin(angle)*7);
+          const dummy = new THREE.Object3D(); dummy.position.copy(yawObject.position);
+          dummy.lookAt(plantedPos.x, plantedPos.y + 0.4, plantedPos.z);
+          yawObject.rotation.y = dummy.rotation.y;
+          pitchObject.rotation.x = clamp(dummy.rotation.x, -0.8, 0.8);
+          tag.textContent = 'GÓC NHÌN THỨ 3 CỦA QUẢ SPIKE';
+          tag.classList.remove('hidden');
+      } else {
+          spectateMode = 'wait';
+          tag.textContent = 'ĐANG CHỜ KẾT THÚC ROUND...';
+          tag.classList.remove('hidden');
+      }
+  }
+
+  /* ============================================================
+     PLAYER MOVEMENT & SPIKE / NHẶT VŨ KHÍ
+  ============================================================ */
+  function updatePlayer(dt){
+    if(player.health <= 0){ updateSpectate(dt); return; }
+
+    const speed = (move.sprint ? 2.5 : 5.8); let inputForward = 0, inputRight = 0;
+    if(move.forward) inputForward += 1; if(move.backward) inputForward -= 1;
+    if(move.right) inputRight += 1; if(move.left) inputRight -= 1;
+
+    if(inputForward !== 0 || inputRight !== 0){
+      camera.getWorldDirection(forwardVec); forwardVec.y = 0; forwardVec.normalize(); rightVec.crossVectors(forwardVec, UP_VEC).normalize();
+      const len = Math.hypot(inputForward, inputRight); const nf = inputForward/len, nr = inputRight/len;
+      const dx = (forwardVec.x*nf + rightVec.x*nr) * speed * dt; const dz = (forwardVec.z*nf + rightVec.z*nr) * speed * dt;
+      const curX = yawObject.position.x, curZ = yawObject.position.z;
+
+      let nx = curX + dx; let nz = curZ + dz;
+      if(collidesXZ(nx, nz, player.radius)){ if(!collidesXZ(nx, curZ, player.radius)) nz = curZ; else if(!collidesXZ(curX, nz, player.radius)) nx = curX; else { nx = curX; nz = curZ; } }
+      yawObject.position.set(nx, yawObject.position.y, nz);
+    }
+    vSpeed += GRAVITY * dt; yawObject.position.y += vSpeed * dt;
+    if(yawObject.position.y <= EYE_HEIGHT){ yawObject.position.y = EYE_HEIGHT; vSpeed = 0; canJump = true; }
+    if(window.gunModel && !isADS){ window.gunModel.position.y = window.gunBasePos.y + ((inputForward!==0||inputRight!==0) && canJump ? Math.sin(performance.now()*0.012)*0.012 : 0); }
+    if(gameState === STATE.PLAYING && mouseDown && WEAPONS[currentGun].isAuto) tryFire();
+
+    if(gameState !== STATE.PLAYING){ el('centerPrompt').classList.remove('show'); return; }
+
+    const pmt = el('centerPrompt');
+    const nearDrop = findNearbyDrop(yawObject.position);
+    if (nearDrop){
+        pmt.classList.add('show');
+        el('promptTxt').textContent = `NHẤN F ĐỂ NHẶT ${WEAPONS[nearDrop.gunKey].name}`;
+        el('promptBar').style.display = 'none';
+    } else if (ATTACK_TEAM === 1 && bombState === 'unplanted' && checkInSite(yawObject.position)) {
+            pmt.classList.add('show');
+            el('promptTxt').textContent = 'GIỮ F ĐỂ ĐẶT SPIKE';
+            el('promptBar').style.display = '';
+            if (isHoldingPlant) {
+                plantProgress += dt; el('promptFill').style.width = (plantProgress / 4 * 100) + '%';
+                if (plantProgress >= 4) {
+                    plantBombAt(yawObject.position);
+                    pmt.classList.remove('show');
+                }
+            } else { plantProgress = 0; el('promptFill').style.width = '0%'; }
+    } else if (DEFEND_TEAM === 1 && bombState === 'planted' && plantedPos && yawObject.position.distanceTo(plantedPos) < 2.5) {
+            pmt.classList.add('show');
+            el('promptTxt').textContent = 'GIỮ F ĐỂ GỠ SPIKE';
+            el('promptBar').style.display = '';
+            if (isHoldingPlant) {
+                player.defuseProgress += dt; el('promptFill').style.width = (player.defuseProgress / 7 * 100) + '%';
+                if (player.defuseProgress >= 7) {
+                    finishRound(true, "BOM ĐÃ ĐƯỢC GỠ");
+                    pmt.classList.remove('show');
+                }
+            } else { player.defuseProgress = 0; el('promptFill').style.width = '0%'; }
+    } else { pmt.classList.remove('show'); isHoldingPlant = false; player.defuseProgress = 0; }
+  }
+
+  function toggleADS(active) {
+      if(active === isADS) return; isADS = active; const gunType = WEAPONS[currentGun].type;
+      if(isADS) {
+          if(gunType === 'sniper') { camera.fov = 20; window.gunModel.visible = false; el('crosshairMount').classList.add('hidden'); el('sniperScope').classList.remove('hidden'); }
+          else { camera.fov = 55; window.gunModel.position.set(0, -0.22, -0.4); }
+      } else { camera.fov = 71; window.gunModel.visible = true; window.gunModel.position.copy(window.gunBasePos); el('crosshairMount').classList.remove('hidden'); el('sniperScope').classList.add('hidden'); }
+      camera.updateProjectionMatrix();
+  }
+
+  function onKeyDown(e){
+    switch(e.code){
+      case 'KeyW': move.forward = true; break; case 'KeyS': move.backward = true; break;
+      case 'KeyA': move.left = true; break; case 'KeyD': move.right = true; break;
+      case 'ShiftLeft': move.sprint = true; break;
+      case 'Space': if(canJump && (gameState === STATE.PLAYING || gameState === STATE.BUY)){ vSpeed = JUMP_SPEED; canJump = false; } break;
+      case 'KeyR': tryReload(); break;
+      case 'KeyB': toggleShop(); break;
+      case 'KeyF':
+          if(gameState !== STATE.PLAYING || player.health <= 0) break;
+          const nearDrop = findNearbyDrop(yawObject.position);
+          if(nearDrop) pickupDrop(nearDrop);
+          else if(checkInSite(yawObject.position) || (bombState === 'planted' && plantedPos && yawObject.position.distanceTo(plantedPos) < 2.5)) isHoldingPlant = true;
+          break;
+      case 'KeyM': isMapZoomed = !isMapZoomed; if (isMapZoomed) el('minimapContainer').classList.add('zoomed'); else el('minimapContainer').classList.remove('zoomed'); break;
+      case 'Escape':
+          if(gameState === STATE.PLAYING) pauseGame();
+          else if(gameState === STATE.BUY) toggleShop();
+          break;
+    }
+  }
+  function onKeyUp(e){ switch(e.code){ case 'KeyW': move.forward = false; break; case 'KeyS': move.backward = false; break; case 'KeyA': move.left = false; break; case 'KeyD': move.right = false; break; case 'ShiftLeft': move.sprint = false; break; case 'KeyF': isHoldingPlant = false; break; } }
+  function onMouseMove(e){
+    if(gameState !== STATE.PLAYING && gameState !== STATE.BUY) return;
+    let sens = settings.sensitivity; if (isADS) sens *= (WEAPONS[currentGun].type === 'sniper' ? 0.3 : 0.7);
+    yawObject.rotation.y -= e.movementX * 0.0022 * sens; pitchObject.rotation.x -= e.movementY * 0.0022 * sens; pitchObject.rotation.x = Math.max(-PI_2*0.95, Math.min(PI_2*0.95, pitchObject.rotation.x));
+  }
+  function onMouseDown(e){
+    if(player.health <= 0){
+        if(e.button === 0 && spectateMode === 'ally'){
+            const aliveAllies = agents.filter(a => a.team === 1 && a.alive);
+            if(aliveAllies.length > 1){
+                const idx = aliveAllies.indexOf(spectateTarget);
+                spectateTarget = aliveAllies[(idx + 1) % aliveAllies.length];
+            }
+        }
+        return;
+    }
+    if(gameState !== STATE.PLAYING) return;
+    if(e.button === 0) { mouseDown = true; if(!WEAPONS[currentGun].isAuto) tryFire(); } else if(e.button === 2) { const gun = WEAPONS[currentGun]; if(gun.type !== 'pistol' && gun.type !== 'melee' && !player.reloading) toggleADS(true); }
+  }
+  function onMouseUp(e){ if(e.button === 0) mouseDown = false; else if(e.button === 2) toggleADS(false); }
+  function onPointerLockChange(){ const locked = document.pointerLockElement === renderer.domElement; renderer.domElement.classList.toggle('playing', locked); if(!locked && gameState === STATE.PLAYING && player.health > 0) { toggleADS(false); pauseGame(); } }
+
+  /* ============================================================
+     ROUND & MATCH LOGIC
+  ============================================================ */
+  function startGame(){
+      ATTACK_TEAM = playerIsAttacker ? 1 : 2;
+      DEFEND_TEAM = playerIsAttacker ? 2 : 1;
+      el('startScreen').classList.add('hidden');
+      spawnRound();
+  }
+
+  function finishRound(allyWin, reasonText) {
+      if(gameState !== STATE.PLAYING) return;
+      gameState = STATE.ROUND_END; toggleADS(false); mouseDown = false;
+
+      if (allyWin) { scoreAlly++; player.money += 3000; el('roundAnimText').textContent = "THẮNG ROUND"; el('roundAnimText').style.color = "var(--cyan)"; }
+      else { scoreEnemy++; player.money += 1900; el('roundAnimText').textContent = "THUA ROUND"; el('roundAnimText').style.color = "var(--red)"; }
+      el('roundReasonText').textContent = reasonText || '';
+
+      el('roundAnimOverlay').classList.add('show');
+      updateHUD();
+
+      const matchOver = scoreAlly >= MATCH_WIN_ROUNDS || scoreEnemy >= MATCH_WIN_ROUNDS;
+
+      setTimeout(() => {
+          el('roundAnimOverlay').classList.remove('show');
+          if(matchOver){ showMatchEnd(scoreAlly > scoreEnemy); }
+          else { currentRound++; spawnRound(); }
+      }, 3000);
+  }
+
+  function showMatchEnd(allyWonMatch){
+      gameState = STATE.ROUND_END;
+      if(document.pointerLockElement) document.exitPointerLock();
+      el('matchEndTitle').textContent = allyWonMatch ? 'CHIẾN THẮNG!' : 'THẤT BẠI!';
+      el('matchEndTitle').style.color = allyWonMatch ? 'var(--cyan)' : 'var(--red)';
+      el('matchEndScore').textContent = `${scoreAlly} - ${scoreEnemy}`;
+      el('matchEndOverlay').classList.remove('hidden');
+  }
+
+  function spawnRound(){
+    agents.forEach(a => scene.remove(a.group)); agents = [];
+    if(spikeMesh) { scene.remove(spikeMesh); spikeMesh = null; }
+    droppedWeapons.forEach(dw => scene.remove(dw.mesh)); droppedWeapons = [];
+    teamSpotted[1] = null; teamSpotted[2] = null;
+    spectateMode = null; spectateTarget = null;
+    el('spectateTag').classList.add('hidden');
+    el('crosshairMount').classList.remove('hidden');
+    if(window.gunModel) window.gunModel.visible = true;
+
+    bombState = 'unplanted'; roundTime = 100; plantProgress = 0; isHoldingPlant = false; player.defuseProgress = 0; el('centerPrompt').classList.remove('show');
+
+    const playerSpawn = NAV_NODES[spawnNodeForTeam(1)];
+    const enemySpawn = NAV_NODES[spawnNodeForTeam(2)];
+    yawObject.position.set((Math.random()-0.5)*10, EYE_HEIGHT, playerSpawn.z);
+    yawObject.rotation.y = (playerSpawn.z > 0) ? Math.PI : 0; pitchObject.rotation.x = 0;
+
+    // Giáp reset mỗi round (giống Valorant, phải mua lại trong pha Buy)
+    player.armor = 0; player.maxHealth = BASE_HEALTH; player.health = BASE_HEALTH;
+    // Vũ khí chính giữ nguyên nhưng đạn dự trữ được nạp lại đầy cho round mới
+    player.reserveAmmo = WEAPONS[currentGun].ammo === Infinity ? 0 : WEAPONS[currentGun].ammo * 3;
+    player.ammo = player.maxAmmo;
+
+    for(let i=0;i<4;i++) { agents.push(new Agent(1, new THREE.Vector3(playerSpawn.x + (Math.random()-0.5)*10, 0, playerSpawn.z + (Math.random()-0.5)*6))); }
+    for(let i=0;i<5;i++) { agents.push(new Agent(2, new THREE.Vector3(enemySpawn.x + (Math.random()-0.5)*10, 0, enemySpawn.z + (Math.random()-0.5)*6))); }
+    agents.forEach(a => scene.add(a.group)); updateHUD();
+
+    enterBuyPhase();
+  }
+
+  /* ============================================================
+     MAIN LOOP
+  ============================================================ */
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    if(gameState === STATE.PLAYING || gameState === STATE.BUY){
+      updatePlayer(dt);
+    }
+
+    if(gameState === STATE.BUY){
+      buyPhaseTime -= dt;
+      if(!el('buyMenuOverlay').classList.contains('hidden')) updateShopUI();
+      if(buyPhaseTime <= 0) endBuyPhase();
+    }
+
+    if(gameState === STATE.PLAYING || gameState === STATE.BUY){
+      agents.forEach(a=>{ a.update(dt); });
+      updateVisibility();
+    }
+
+    if(gameState === STATE.PLAYING){
+      let enemiesAlive = agents.filter(a => a.team === 2 && a.alive).length;
+      let alliesAlive = agents.filter(a => a.team === 1 && a.alive).length + (player.health > 0 ? 1 : 0);
+
+      if (enemiesAlive === 0 && bombState !== 'planted') finishRound(true, "ĐỘI ĐỊCH ĐÃ BỊ TIÊU DIỆT HOÀN TOÀN");
+      if (alliesAlive === 0 && bombState !== 'planted') finishRound(false, "ĐỒNG ĐỘI ĐÃ BỊ TIÊU DIỆT HOÀN TOÀN");
+
+      if (bombState === 'planted') {
+          let defuser = agents.find(a => a.team === DEFEND_TEAM && a.alive && a.state === 'defusing' && a.group.position.distanceTo(plantedPos) < 2.5);
+          if (defuser) { defuser.defuseProgress += dt; if (defuser.defuseProgress >= 7) finishRound(DEFEND_TEAM === 1, "BOM ĐÃ ĐƯỢC GỠ"); }
+          else { agents.forEach(a => a.defuseProgress = 0); }
+      }
+
+      roundTime -= dt;
+      if (roundTime <= 0) {
+          if (bombState === 'unplanted') finishRound(DEFEND_TEAM === 1, "HẾT GIỜ - KHÔNG THỂ CÀI BOM");
+          else if (bombState === 'planted') finishRound(ATTACK_TEAM === 1, "BOM ĐÃ PHÁT NỔ");
+      }
+    }
+
+    updateHUD();
+    renderer.render(scene, camera);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
